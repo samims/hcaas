@@ -1,0 +1,37 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Output of `go build`
+/bin/
+/build/
+/dist/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# IDE/editor settings
+.vscode/
+.idea/
+*.swp
+*~
+
+# Dependency directories (if vendored)
+/vendor/
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.*
+
+# Postgres data or dumps
+*.sql
+*.dump
