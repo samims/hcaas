@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,12 +12,16 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/samims/hcaas/internal/handler"
+	"github.com/samims/hcaas/internal/logger"
 	"github.com/samims/hcaas/internal/router"
 	"github.com/samims/hcaas/internal/service"
 	"github.com/samims/hcaas/internal/storage"
 )
 
 func main() {
+	l := logger.NewJSONLogger()
+	slog.SetDefault(l)
+
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
@@ -25,13 +30,13 @@ func main() {
 	dbPool, err := storage.NewPostgresPool(ctx)
 
 	if err != nil {
-		log.Fatalf("Failed to connect to databse: %v", err)
 		defer dbPool.Close()
+		log.Fatalf("Failed to connect to databse: %v", err)
 	}
 
 	ps := storage.NewPostgresStorage(dbPool)
-	svc := service.NewURLService(ps)
-	h := handler.NewURLHandler(svc)
+	svc := service.NewURLService(ps, l)
+	h := handler.NewURLHandler(svc, l)
 	port := ":8080"
 	// Setup router
 	r := router.NewRouter(h)
