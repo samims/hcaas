@@ -16,6 +16,10 @@ type PostgresStorage struct {
 	db *pgxpool.Pool
 }
 
+func NewPostgresStorage(pool *pgxpool.Pool) *PostgresStorage {
+	return &PostgresStorage{pool}
+}
+
 func (ps *PostgresStorage) FindByID(id string) (model.URL, error) {
 	ctx := context.Background()
 
