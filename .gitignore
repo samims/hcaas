@@ -35,3 +35,4 @@ go.work.sum
 # Postgres data or dumps
 *.sql
 *.dump
+go.sum
