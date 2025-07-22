@@ -10,7 +10,7 @@ import (
 	"github.com/samims/hcaas/internal/handler"
 )
 
-func NewRouter(h *handler.URLHandler) http.Handler {
+func NewRouter(h *handler.URLHandler, healthHandler *handler.HealthHandler) http.Handler {
 	r := chi.NewRouter()
 
 	// Middleware
@@ -26,8 +26,9 @@ func NewRouter(h *handler.URLHandler) http.Handler {
 		r.Put("/{id}", h.UpdateStatus)
 	})
 
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK"))
-	})
+	// Health & Readiness Routes
+	r.Get("/healthz", healthHandler.Liveness)
+	r.Get("/readyz", healthHandler.Readiness)
+
 	return r
 }
