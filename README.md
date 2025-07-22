@@ -58,7 +58,7 @@ hcaas/
 
 ```bash
 git clone https://github.com/samims/hcaas
-cd hc-aas
+cd hcaas
 ```
 
 ### 2. Configure Environment
@@ -239,7 +239,7 @@ Contributions are welcome! Please:
 2. Create a feature branch (`git checkout -b feature/xyz`).
 3. Submit a pull request with clear descriptions.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details. Report issues or suggest features on [GitHub](https://github.com/yourname/hc-aas).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details. Report issues or suggest features on [GitHub](https://github.com/samims/hcaas).
 
 *Want to enhance this project? Let me know if you’d like:*
 - A `Dockerfile` and `docker-compose.yml` for containerized deployment

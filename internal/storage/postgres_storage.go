@@ -16,8 +16,12 @@ type PostgresStorage struct {
 	db *pgxpool.Pool
 }
 
-func NewPostgresStorage(pool *pgxpool.Pool) *PostgresStorage {
+func NewPostgresStorage(pool *pgxpool.Pool) HealthCheckStorage {
 	return &PostgresStorage{pool}
+}
+
+func (ps *PostgresStorage) Ping(ctx context.Context) error {
+	return ps.db.Ping(ctx)
 }
 
 func (ps *PostgresStorage) FindByID(id string) (model.URL, error) {
