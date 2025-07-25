@@ -6,8 +6,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/samims/hcaas/internal/metrics"
 	"github.com/samims/hcaas/internal/service"
 )
+
+const Healthy = "healthy"
+const UnHealthy = "unhealthy"
 
 type URLChecker struct {
 	svc        service.URLService
@@ -75,7 +79,9 @@ func (uc *URLChecker) ping(target string) string {
 	resp, err := uc.httpClient.Get(target)
 	if err != nil || resp.StatusCode >= http.StatusBadRequest {
 		uc.logger.Warn("Invalid URL", slog.String("address", target), slog.Any("error", err))
-		return "unhealthy"
+		metrics.URLCheckStatus.WithLabelValues("up").Inc()
+		return UnHealthy
 	}
-	return "healthy"
+	metrics.URLCheckStatus.WithLabelValues("up").Inc()
+	return Healthy
 }
