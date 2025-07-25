@@ -14,6 +14,7 @@ import (
 	"github.com/samims/hcaas/internal/checker"
 	"github.com/samims/hcaas/internal/handler"
 	"github.com/samims/hcaas/internal/logger"
+	"github.com/samims/hcaas/internal/metrics"
 	"github.com/samims/hcaas/internal/router"
 	"github.com/samims/hcaas/internal/service"
 	"github.com/samims/hcaas/internal/storage"
@@ -22,6 +23,8 @@ import (
 func main() {
 	l := logger.NewJSONLogger()
 	slog.SetDefault(l)
+
+	metrics.Init()
 
 	if err := godotenv.Load(); err != nil {
 		l.Error("Error loading .env file", "err", err)
