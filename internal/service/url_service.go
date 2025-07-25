@@ -29,7 +29,7 @@ func NewURLService(store storage.HealthCheckStorage, logger *slog.Logger) URLSer
 	return &urlService{store: store, logger: l}
 }
 
-func (s *urlService) GetAll(ctx context.Context) ([]model.URL, error) {
+func (s *urlService) GetAll(_ context.Context) ([]model.URL, error) {
 	s.logger.Info("GetAll called")
 	urls, err := s.store.FindAll()
 	if err != nil {
@@ -40,7 +40,7 @@ func (s *urlService) GetAll(ctx context.Context) ([]model.URL, error) {
 	return urls, nil
 }
 
-func (s *urlService) GetByID(ctx context.Context, id string) (*model.URL, error) {
+func (s *urlService) GetByID(_ context.Context, id string) (*model.URL, error) {
 	s.logger.Info("GetByID called", slog.String("id", id))
 	url, err := s.store.FindByID(id)
 	if err != nil {
@@ -56,7 +56,7 @@ func (s *urlService) GetByID(ctx context.Context, id string) (*model.URL, error)
 	return &url, nil
 }
 
-func (s *urlService) Add(ctx context.Context, url model.URL) error {
+func (s *urlService) Add(_ context.Context, url model.URL) error {
 	s.logger.Info("Add called")
 	if err := s.store.Save(url); err != nil {
 		if errors.Is(err, appErr.ErrConflict) {
@@ -72,7 +72,7 @@ func (s *urlService) Add(ctx context.Context, url model.URL) error {
 	return nil
 }
 
-func (s *urlService) UpdateStatus(ctx context.Context, id string, status string) error {
+func (s *urlService) UpdateStatus(_ context.Context, id string, status string) error {
 	s.logger.Info("UpdateStatus called", slog.String("id", id), slog.String("status", status))
 	if err := s.store.UpdateStatus(id, status, time.Now()); err != nil {
 		if errors.Is(err, appErr.ErrNotFound) {
