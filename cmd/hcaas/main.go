@@ -11,6 +11,7 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"github.com/samims/hcaas/internal/checker"
 	"github.com/samims/hcaas/internal/handler"
 	"github.com/samims/hcaas/internal/logger"
 	"github.com/samims/hcaas/internal/router"
@@ -38,6 +39,10 @@ func main() {
 	ps := storage.NewPostgresStorage(dbPool)
 	urlSvc := service.NewURLService(ps, l)
 	healthSvc := service.NewHealthService(ps, l)
+
+	httpClient := &http.Client{Timeout: 5 * time.Second}
+	chkr := checker.NewURLChecker(urlSvc, l, httpClient, 1*time.Minute)
+	go chkr.Start(ctx)
 
 	urlHandler := handler.NewURLHandler(urlSvc, l)
 	healthHandler := handler.NewHealthHandler(healthSvc, l)
