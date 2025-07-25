@@ -1,0 +1,9 @@
+# Don't copy these into container
+.git
+*.md
+*.log
+*.env
+Dockerfile
+docker-compose.yml
+testdata/
+coverage.*
