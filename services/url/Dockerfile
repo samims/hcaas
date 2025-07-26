@@ -13,10 +13,10 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 
-COPY . .
+COPY ../.. .
 
 # Build the binary
-RUN go build -o hcaas ./cmd/hcaas
+RUN go build -o hcaas ./cmd/url
 
 # --- Stage 2: minimal runtime ---
 FROM gcr.io/distroless/static-debian11:nonroot
