@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/samims/hcaas/internal/model"
+	"github.com/samims/hcaas/services/url/internal/model"
 )
 
 type HealthCheckStorage interface {

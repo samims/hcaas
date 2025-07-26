@@ -7,9 +7,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/samims/hcaas/internal/errors"
-	"github.com/samims/hcaas/internal/model"
-	"github.com/samims/hcaas/internal/service"
+	"github.com/samims/hcaas/services/url/internal/errors"
+	"github.com/samims/hcaas/services/url/internal/model"
+	"github.com/samims/hcaas/services/url/internal/service"
 )
 
 type URLHandler struct {

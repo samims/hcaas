@@ -7,9 +7,9 @@ import (
 	"log/slog"
 	"time"
 
-	appErr "github.com/samims/hcaas/internal/errors"
-	"github.com/samims/hcaas/internal/model"
-	"github.com/samims/hcaas/internal/storage"
+	appErr "github.com/samims/hcaas/services/url/internal/errors"
+	"github.com/samims/hcaas/services/url/internal/model"
+	"github.com/samims/hcaas/services/url/internal/storage"
 )
 
 type URLService interface {

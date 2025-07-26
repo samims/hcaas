@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/samims/hcaas/internal/storage"
+	"github.com/samims/hcaas/services/url/internal/storage"
 )
 
 type HealthService interface {
