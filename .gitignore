@@ -29,10 +29,10 @@ go.work.sum
 *.log
 
 # Environment files
-.env
-.env.*
+services/url/.env
+services/url/.env.example
 
 # Postgres data or dumps
 *.sql
 *.dump
-go.sum
+services/url/go.sum

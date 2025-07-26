@@ -2,7 +2,7 @@ services:
   hcaas_web:
     container_name: hcaas_web
     build:
-      context: .
+      context: services/url
       dockerfile: Dockerfile
     depends_on:
       - hcaas_db
@@ -10,7 +10,7 @@ services:
       - "8080:8080"
     restart: unless-stopped
     env_file:
-      - .env
+      - services/url/.env
     environment:
       - DATABASE_URL=postgres://hcaas_user:hcaas_pass@hcaas_db:5432/hcaas_db
       - ENV=production
@@ -29,7 +29,7 @@ services:
       POSTGRES_DB: hcaas_db
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - monitoring
 
@@ -37,7 +37,7 @@ services:
     image: prom/prometheus:v2.52.0
     container_name: hcaas_prometheus
     volumes:
-      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./infra/prometheus:/etc/prometheus
     ports:
       - "9090:9090"
     networks:
