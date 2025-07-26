@@ -21,7 +21,7 @@ func MetricsMiddleware(next http.Handler) http.Handler {
 		method := r.Method
 		status := strconv.Itoa(ww.Status())
 
-		metrics.HTTPRequests.WithLabelValues(path, method, status).Inc()
+		metrics.RequestCount.WithLabelValues(path, method, status).Inc()
 		metrics.RequestDuration.WithLabelValues(path, method).Observe(duration)
 	}
 

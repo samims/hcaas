@@ -3,7 +3,7 @@ package metrics
 import "github.com/prometheus/client_golang/prometheus"
 
 var (
-	HTTPRequests = prometheus.NewCounterVec(
+	RequestCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "hcaas_http_requests_total",
 			Help: "Total number of HTTP requests",
@@ -31,5 +31,5 @@ var (
 )
 
 func Init() {
-	prometheus.MustRegister(HTTPRequests, RequestDuration, URLCheckStatus)
+	prometheus.MustRegister(RequestCount, RequestDuration, URLCheckStatus)
 }
