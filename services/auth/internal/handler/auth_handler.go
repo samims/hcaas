@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/samims/hcaas/services/auth/internal/model"
 	"github.com/samims/hcaas/services/auth/internal/service"
 )
 
@@ -57,7 +56,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.authSvc.Login(r.Context(), req.Email, req.Password)
+	_, token, err := h.authSvc.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, err.Error())
 		return
