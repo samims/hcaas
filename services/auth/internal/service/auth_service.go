@@ -15,6 +15,7 @@ import (
 type AuthService interface {
 	Register(ctx context.Context, email, password string) (*model.User, error)
 	Login(ctx context.Context, email, password string) (*model.User, string, error)
+	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
 }
 
 type authService struct {
@@ -76,4 +77,18 @@ func (s *authService) Login(ctx context.Context, email, password string) (*model
 
 	s.logger.Info("Login succeeded", slog.String("email", email))
 	return user, token, nil
+}
+
+func (s *authService) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
+	user, err := s.store.GetUserByEmail(ctx, email)
+	if err != nil {
+		s.logger.Error(
+			"Failed to fetch user by email ",
+			slog.String("email", email),
+			slog.String("error", err.Error()),
+		)
+		return nil, appErr.ErrInternal
+	}
+
+	return user, nil
 }

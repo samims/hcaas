@@ -65,3 +65,21 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"token": token})
 }
+
+func (h *AuthHandler) GetUser(w http.ResponseWriter, r *http.Request) {
+	h.logger.Info("Get User handler")
+	email := r.URL.Query().Get("email")
+
+	if email == "" {
+		http.Error(w, "missing email query param", http.StatusBadRequest)
+		return
+	}
+	user, err := h.authSvc.GetUserByEmail(r.Context(), email)
+
+	if err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+	json.NewEncoder(w).Encode(user)
+
+}

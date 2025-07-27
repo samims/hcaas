@@ -2,8 +2,9 @@ package storage
 
 import (
 	"context"
-	"database/sql"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/samims/hcaas/services/auth/internal/model"
 
@@ -16,11 +17,11 @@ type UserStorage interface {
 }
 
 type userStorage struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
-func NewUserStorage(db *sql.DB) UserStorage {
-	return &userStorage{db: db}
+func NewUserStorage(dbPool *pgxpool.Pool) UserStorage {
+	return &userStorage{db: dbPool}
 }
 
 func (s *userStorage) CreateUser(ctx context.Context, email, hashedPass string) (*model.User, error) {
@@ -31,7 +32,7 @@ func (s *userStorage) CreateUser(ctx context.Context, email, hashedPass string) 
 		VALUES ($1, $2, $3, $4)
 	`
 
-	_, err := s.db.ExecContext(ctx, query, id, email, hashedPass)
+	_, err := s.db.Exec(ctx, query, id, email, hashedPass)
 
 	if err != nil {
 		return nil, err
@@ -51,7 +52,7 @@ func (s *userStorage) GetUserByEmail(ctx context.Context, email string) (*model.
 		FROM users
 		WHERE email = $1
 	`
-	row := s.db.QueryRowContext(ctx, query, email)
+	row := s.db.QueryRow(ctx, query, email)
 
 	var user model.User
 	if err := row.Scan(&user.ID, &user.Email, user.Password, user.CreatedAt); err != nil {
