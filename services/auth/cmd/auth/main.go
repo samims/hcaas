@@ -48,9 +48,11 @@ func main() {
 	expiryDuration := time.Duration(exp)
 
 	tokenSvc := service.NewJWTService(secret, expiryDuration)
-	authService := service.NewAuthService(userStorage, l)
+	authSvc := service.NewAuthService(userStorage, l)
+	healthSvc := service.NewHealthService(userStorage, l)
 
-	authHandler := handler.NewAuthHandler(authService, l)
+	authHandler := handler.NewAuthHandler(authSvc, l)
+	healthHandler := handler.NewHealthHandler(healthSvc, l)
 
 	r = chi.NewRouter()
 
@@ -71,6 +73,9 @@ func main() {
 		r.Use(customMiddleware.AuthMiddleware(tokenSvc))
 		r.Get("/me", authHandler.GetUser)
 	})
+
+	r.Get("/readyz", healthHandler.Readiness)
+	r.Get("/healthz", healthHandler.Liveness)
 
 	port := ":8081"
 
