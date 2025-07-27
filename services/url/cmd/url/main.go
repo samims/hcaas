@@ -11,13 +11,13 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"github.com/samims/hcaas/internal/checker"
-	"github.com/samims/hcaas/internal/handler"
-	"github.com/samims/hcaas/internal/logger"
-	"github.com/samims/hcaas/internal/metrics"
-	"github.com/samims/hcaas/internal/router"
-	"github.com/samims/hcaas/internal/service"
-	"github.com/samims/hcaas/internal/storage"
+	"github.com/samims/hcaas/services/url/internal/checker"
+	"github.com/samims/hcaas/services/url/internal/handler"
+	"github.com/samims/hcaas/services/url/internal/logger"
+	"github.com/samims/hcaas/services/url/internal/metrics"
+	"github.com/samims/hcaas/services/url/internal/router"
+	"github.com/samims/hcaas/services/url/internal/service"
+	"github.com/samims/hcaas/services/url/internal/storage"
 )
 
 func main() {
