@@ -14,12 +14,13 @@ import (
 
 type AuthService interface {
 	Register(ctx context.Context, email, password string) (*model.User, error)
-	Login(ctx context.Context, email, password string) (*model.User, error)
+	Login(ctx context.Context, email, password string) (*model.User, string, error)
 }
 
 type authService struct {
-	store  storage.UserStorage
-	logger *slog.Logger
+	store    storage.UserStorage
+	logger   *slog.Logger
+	tokenSvc TokenService
 }
 
 func NewAuthService(store storage.UserStorage, logger *slog.Logger) AuthService {
@@ -50,24 +51,29 @@ func (s *authService) Register(ctx context.Context, email, password string) (*mo
 	return createdUser, nil
 }
 
-func (s *authService) Login(ctx context.Context, email, password string) (*model.User, error) {
+func (s *authService) Login(ctx context.Context, email, password string) (*model.User, string, error) {
 	s.logger.Info("Login called", slog.String("email", email))
 
 	user, err := s.store.GetUserByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, appErr.ErrNotFound) {
 			s.logger.Warn("User not found", slog.String("email", email))
-			return nil, appErr.ErrNotFound
+			return nil, "", appErr.ErrNotFound
 		}
 		s.logger.Error("User fetch failed", slog.Any("error", err))
-		return nil, appErr.ErrInternal
+		return nil, "", appErr.ErrInternal
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
 		s.logger.Warn("Invalid credentials", slog.String("email", email))
-		return nil, appErr.ErrUnauthorized
+		return nil, "", appErr.ErrUnauthorized
+	}
+	token, err := s.tokenSvc.GenerateToken(user)
+	if err != nil {
+		s.logger.Error("Token generation failed ", slog.String("email", email))
+		return nil, "", appErr.ErrTokenGeneration
 	}
 
 	s.logger.Info("Login succeeded", slog.String("email", email))
-	return user, nil
+	return user, token, nil
 }
