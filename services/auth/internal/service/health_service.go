@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/samims/hcaas/services/url/internal/storage"
+	"github.com/samims/hcaas/services/auth/internal/storage"
 )
 
 type HealthService interface {
@@ -14,31 +14,35 @@ type HealthService interface {
 }
 
 type healthService struct {
-	store  storage.HealthCheckStorage
-	logger *slog.Logger
+	logger  *slog.Logger
+	storage storage.UserStorage
 }
 
-func (s healthService) Liveness(ctx context.Context) error {
+func NewHealthService(store storage.UserStorage, logger *slog.Logger) HealthService {
+	l := logger.With("layer", "service", "component", "auth_health_service")
+	return &healthService{storage: store, logger: l}
+
+}
+
+func (s *healthService) Liveness(ctx context.Context) error {
 	s.logger.Debug("Liveness check passed")
 	return nil
 }
 
-func (s healthService) Readiness(ctx context.Context) error {
+// Readiness checks if db service is working
+func (s *healthService) Readiness(ctx context.Context) error {
 	s.logger.Debug("Readiness check initiated")
 	// we wait upto 2 seconds
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	err := s.store.Ping(ctx)
+	err := s.storage.Ping(ctx)
 	if err != nil {
 		s.logger.Error("Readiness check failed", slog.String("error", err.Error()))
 		return err
 	}
+
 	s.logger.Debug("Readiness Check passed")
 	return nil
-}
 
-func NewHealthService(store storage.HealthCheckStorage, logger *slog.Logger) HealthService {
-	l := logger.With("layer", "service", "component", "healthService")
-	return &healthService{store: store, logger: l}
 }

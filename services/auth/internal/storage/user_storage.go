@@ -14,6 +14,7 @@ import (
 type UserStorage interface {
 	CreateUser(ctx context.Context, email, hashedPass string) (*model.User, error)
 	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
+	Ping(ctx context.Context) error
 }
 
 type userStorage struct {
@@ -60,4 +61,8 @@ func (s *userStorage) GetUserByEmail(ctx context.Context, email string) (*model.
 	}
 
 	return &user, nil
+}
+
+func (s *userStorage) Ping(ctx context.Context) error {
+	return s.db.Ping(ctx)
 }
