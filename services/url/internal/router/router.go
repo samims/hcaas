@@ -8,8 +8,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/samims/hcaas/internal/handler"
-	customMiddleware "github.com/samims/hcaas/internal/middleware"
+	"github.com/samims/hcaas/services/url/internal/handler"
+	customMiddleware "github.com/samims/hcaas/services/url/internal/middleware"
 )
 
 func NewRouter(h *handler.URLHandler, healthHandler *handler.HealthHandler) http.Handler {

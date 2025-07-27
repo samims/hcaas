@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/samims/hcaas/internal/metrics"
-	"github.com/samims/hcaas/internal/service"
+	"github.com/samims/hcaas/services/url/internal/metrics"
+	"github.com/samims/hcaas/services/url/internal/service"
 )
 
 const Healthy = "healthy"
@@ -79,7 +79,7 @@ func (uc *URLChecker) ping(target string) string {
 	resp, err := uc.httpClient.Get(target)
 	if err != nil || resp.StatusCode >= http.StatusBadRequest {
 		uc.logger.Warn("Invalid URL", slog.String("address", target), slog.Any("error", err))
-		metrics.URLCheckStatus.WithLabelValues("up").Inc()
+		metrics.URLCheckStatus.WithLabelValues("down").Inc()
 		return UnHealthy
 	}
 	metrics.URLCheckStatus.WithLabelValues("up").Inc()

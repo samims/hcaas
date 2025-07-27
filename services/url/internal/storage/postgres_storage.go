@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/samims/hcaas/internal/model"
+	"github.com/samims/hcaas/services/url/internal/model"
 )
 
 type PostgresStorage struct {
