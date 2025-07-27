@@ -10,6 +10,7 @@ import (
 
 type TokenService interface {
 	GenerateToken(user *model.User) (string, error)
+	ValidateToken(tokenStr string) (string, error)
 }
 
 type jwtService struct {
@@ -30,4 +31,24 @@ func (s *jwtService) GenerateToken(user *model.User) (string, error) {
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(s.secret))
+}
+
+func (s *jwtService) ValidateToken(tokenStr string) (string, error) {
+	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (any, error) {
+		return []byte(s.secret), nil
+	})
+
+	if err != nil || !token.Valid {
+		return "", err
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", jwt.ErrTokenMalformed
+	}
+	sub, ok := claims["sub"].(string)
+	if !ok {
+		return "", jwt.ErrTokenMalformed
+	}
+	return sub, nil
 }
