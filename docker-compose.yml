@@ -34,7 +34,7 @@ services:
       - monitoring
 
   hcaas_prometheus:
-    image: prom/prometheus:v2.52.0
+    image: prom/prometheus:latest
     container_name: hcaas_prometheus
     volumes:
       - ./infra/prometheus:/etc/prometheus
@@ -44,7 +44,7 @@ services:
       - monitoring
 
   hcaas_grafana:
-    image: grafana/grafana:10.4.1
+    image: grafana/grafana:latest
     container_name: hcaas_grafana
     depends_on:
       - hcaas_prometheus
@@ -85,7 +85,7 @@ services:
       POSTGRES_PASSWORD: hcaas_auth_pass
       POSTGRES_DB: hcaas_auth_db
     ports:
-      - "5433:5432"
+      - "5433:5433"
     volumes:
       - hcaas_auth_db_data:/var/lib/postgresql/data
 

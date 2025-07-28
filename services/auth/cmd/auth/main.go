@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/samims/hcaas/services/auth/internal/handler"
 	"github.com/samims/hcaas/services/auth/internal/logger"
@@ -56,6 +57,8 @@ func main() {
 
 	r = chi.NewRouter()
 
+	r.Use(customMiddleware.MetricsMiddleware)
+
 	// Middleware
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
@@ -76,6 +79,8 @@ func main() {
 
 	r.Get("/readyz", healthHandler.Readiness)
 	r.Get("/healthz", healthHandler.Liveness)
+
+	r.Handle("/metrics", promhttp.Handler())
 
 	port := ":8081"
 
