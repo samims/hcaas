@@ -6,6 +6,11 @@ scrape_configs:
     static_configs:
       - targets: ['hcaas-web:8080']
 
+  - job_name: 'hcaas_auth'
+    static_configs:
+      - targets: [ 'hcaas_auth:8081' ]
+
   - job_name: 'node'
     static_configs:
       - targets: ['hcaas_node_exporter:9100']
+

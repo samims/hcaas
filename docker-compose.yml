@@ -10,12 +10,12 @@ services:
       - "8080:8080"
     restart: unless-stopped
     env_file:
-      - services/url/.env
+      - ./services/url/.env
     environment:
       - DATABASE_URL=postgres://hcaas_user:hcaas_pass@hcaas_db:5432/hcaas_db
       - ENV=production
     volumes:
-      - .env:/.env
+      - ./services/url/.env:/.env
     networks:
       - monitoring
 
@@ -34,7 +34,7 @@ services:
       - monitoring
 
   hcaas_prometheus:
-    image: prom/prometheus:v2.52.0
+    image: prom/prometheus:latest
     container_name: hcaas_prometheus
     volumes:
       - ./infra/prometheus:/etc/prometheus
@@ -44,7 +44,7 @@ services:
       - monitoring
 
   hcaas_grafana:
-    image: grafana/grafana:10.4.1
+    image: grafana/grafana:latest
     container_name: hcaas_grafana
     depends_on:
       - hcaas_prometheus
@@ -66,9 +66,33 @@ services:
     networks:
       - monitoring
 
+  hcaas_auth:
+    container_name: hcaas_auth
+    build:
+      context: ./services/auth
+    env_file:
+      - ./services/auth/.env
+    ports:
+      - "8081:8081"
+
+
+  hcaas_auth_db:
+    container_name: hcaas_auth_db
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: hcaas_auth_user
+      POSTGRES_PASSWORD: hcaas_auth_pass
+      POSTGRES_DB: hcaas_auth_db
+    ports:
+      - "5433:5433"
+    volumes:
+      - hcaas_auth_db_data:/var/lib/postgresql/data
+
 
 volumes:
   pgdata:
+  hcaas_auth_db_data:
   grafana-storage:
 
 networks:
