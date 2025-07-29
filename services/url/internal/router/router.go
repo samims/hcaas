@@ -2,6 +2,7 @@ package router
 
 import (
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -14,6 +15,8 @@ import (
 
 func NewRouter(h *handler.URLHandler, healthHandler *handler.HealthHandler) http.Handler {
 	r := chi.NewRouter()
+	authSvcURL := os.Getenv("AUTH_SVC_URL")
+	authMiddleware := customMiddleware.AuthMiddleware(authSvcURL)
 
 	// Middleware
 	r.Use(customMiddleware.MetricsMiddleware)
@@ -22,7 +25,7 @@ func NewRouter(h *handler.URLHandler, healthHandler *handler.HealthHandler) http
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
 
-	r.Route("/urls", func(r chi.Router) {
+	r.With(authMiddleware).Route("/urls", func(r chi.Router) {
 		r.Get("/", h.GetAll)
 		r.Get("/{id}", h.GetByID)
 		r.Post("/", h.Add)

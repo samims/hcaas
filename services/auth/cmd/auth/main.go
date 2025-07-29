@@ -69,6 +69,7 @@ func main() {
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/register", authHandler.Register)
 		r.Post("/login", authHandler.Login)
+		r.Post("/validate", authHandler.Validate)
 	})
 
 	// protected

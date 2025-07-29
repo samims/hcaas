@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/samims/hcaas/services/auth/internal/service"
 )
@@ -82,4 +83,22 @@ func (h *AuthHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(user)
 
+}
+
+func (h *AuthHandler) Validate(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+		respondError(w, http.StatusUnauthorized, "missing token")
+		return
+	}
+
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	userID, err := h.authSvc.ValidateToken(token)
+	if err != nil {
+		respondError(w, http.StatusUnauthorized, "invalid token")
+	}
+
+	resp := map[string]string{"user_id": userID}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
