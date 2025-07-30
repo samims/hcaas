@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -27,11 +28,10 @@ func main() {
 	_ = godotenv.Load()
 
 	l := logger.NewJSONLogger()
-	r := chi.NewRouter()
 
 	dbPool, err := storage.NewPostgresPool(ctx)
 	if err != nil {
-		l.Error("Failed to connect to database", "err", err)
+		l.Error("Failed to connect to database", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 	defer dbPool.Close()
@@ -42,20 +42,24 @@ func main() {
 	expiry := os.Getenv("AUTH_EXPIRY")
 	exp, err := strconv.Atoi(expiry)
 	if err != nil {
-		l.Error("Error converting expiration duration to int ", err)
-		return
+		l.Error(
+			"Error converting expiration duration to int ",
+			slog.String("expiry", expiry),
+			slog.String("error", err.Error()),
+		)
+		os.Exit(1)
 	}
 
-	expiryDuration := time.Duration(exp)
+	expiryDuration := time.Duration(exp) * time.Hour
 
-	tokenSvc := service.NewJWTService(secret, expiryDuration)
-	authSvc := service.NewAuthService(userStorage, l)
+	tokenSvc := service.NewJWTService(secret, expiryDuration, l)
+	authSvc := service.NewAuthService(userStorage, l, tokenSvc)
 	healthSvc := service.NewHealthService(userStorage, l)
 
 	authHandler := handler.NewAuthHandler(authSvc, l)
 	healthHandler := handler.NewHealthHandler(healthSvc, l)
 
-	r = chi.NewRouter()
+	r := chi.NewRouter()
 
 	r.Use(customMiddleware.MetricsMiddleware)
 
@@ -69,7 +73,7 @@ func main() {
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/register", authHandler.Register)
 		r.Post("/login", authHandler.Login)
-		r.Post("/validate", authHandler.Validate)
+		r.Get("/validate", authHandler.Validate)
 	})
 
 	// protected

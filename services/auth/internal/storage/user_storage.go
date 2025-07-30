@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -33,7 +34,7 @@ func (s *userStorage) CreateUser(ctx context.Context, email, hashedPass string) 
 		VALUES ($1, $2, $3, $4)
 	`
 
-	_, err := s.db.Exec(ctx, query, id, email, hashedPass)
+	_, err := s.db.Exec(ctx, query, id, email, hashedPass, now)
 
 	if err != nil {
 		return nil, err
@@ -56,9 +57,10 @@ func (s *userStorage) GetUserByEmail(ctx context.Context, email string) (*model.
 	row := s.db.QueryRow(ctx, query, email)
 
 	var user model.User
-	if err := row.Scan(&user.ID, &user.Email, user.Password, user.CreatedAt); err != nil {
+	if err := row.Scan(&user.ID, &user.Email, &user.Password, &user.CreatedAt); err != nil {
 		return nil, err
 	}
+	fmt.Println(user)
 
 	return &user, nil
 }

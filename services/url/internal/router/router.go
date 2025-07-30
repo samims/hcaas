@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"log/slog"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -13,10 +15,10 @@ import (
 	customMiddleware "github.com/samims/hcaas/services/url/internal/middleware"
 )
 
-func NewRouter(h *handler.URLHandler, healthHandler *handler.HealthHandler) http.Handler {
+func NewRouter(h *handler.URLHandler, healthHandler *handler.HealthHandler, logger *slog.Logger) http.Handler {
 	r := chi.NewRouter()
 	authSvcURL := os.Getenv("AUTH_SVC_URL")
-	authMiddleware := customMiddleware.AuthMiddleware(authSvcURL)
+	authMiddleware := customMiddleware.AuthMiddleware(authSvcURL, logger)
 
 	// Middleware
 	r.Use(customMiddleware.MetricsMiddleware)
