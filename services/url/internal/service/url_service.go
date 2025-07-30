@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
+
 	appErr "github.com/samims/hcaas/services/url/internal/errors"
 	"github.com/samims/hcaas/services/url/internal/model"
 	"github.com/samims/hcaas/services/url/internal/storage"
@@ -57,8 +59,22 @@ func (s *urlService) GetByID(_ context.Context, id string) (*model.URL, error) {
 }
 
 func (s *urlService) Add(_ context.Context, url model.URL) error {
-	s.logger.Info("Add called")
-	if err := s.store.Save(url); err != nil {
+	s.logger.Info("Add url called", slog.String("url", url.Address))
+
+	// Check if URL address already exists
+	_, err := s.store.FindByAddress(url.Address)
+	if err == nil {
+		s.logger.Warn("URL address already exists", slog.String("address", url.Address))
+		return appErr.NewInternal("URL address %s already exists", url.Address)
+	} else if !errors.Is(err, appErr.ErrNotFound) {
+		s.logger.Error("failed to check URL address uniqueness", slog.String("address", url.Address), slog.String("error", err.Error()))
+		return appErr.NewInternal("failed to check URL address uniqueness: %v", err)
+	}
+
+	if url.ID == "" {
+		url.ID = uuid.New().String()
+	}
+	if err := s.store.Save(&url); err != nil {
 		if errors.Is(err, appErr.ErrConflict) {
 			s.logger.Warn("URL already exists", slog.String("id", url.ID))
 			return appErr.NewInternal("URL with ID %s already exists", url.ID)

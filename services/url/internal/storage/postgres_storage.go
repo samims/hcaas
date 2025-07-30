@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	appErr "github.com/samims/hcaas/services/url/internal/errors"
 	"github.com/samims/hcaas/services/url/internal/model"
 )
 
@@ -79,15 +80,16 @@ func (ps *PostgresStorage) FindAll() ([]model.URL, error) {
 	return urls, nil
 }
 
-func (ps *PostgresStorage) Save(url model.URL) error {
+func (ps *PostgresStorage) Save(url *model.URL) error {
 	ctx := context.Background()
 
 	const queryStr = `
-		INSERT INTO urls(id, address, status, checked_at)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO urls(address, status, checked_at)
+		VALUES ($1, $2, $3)
+		RETURNING id
 	`
 
-	_, err := ps.db.Exec(ctx, queryStr, url.ID, url.Address, url.Status)
+	err := ps.db.QueryRow(ctx, queryStr, url.Address, url.Status, url.CheckedAt).Scan(&url.ID)
 
 	if err != nil {
 		return fmt.Errorf("failed to save url: %w", err)
@@ -100,7 +102,7 @@ func (ps *PostgresStorage) UpdateStatus(id string, status string, checkedAt time
 	ctx := context.Background()
 	const query = `
 		UPDATE urls
-		SET status = $1, checked_at $2
+		SET status = $1, checked_at = $2
 		WHERE id = $3
 	`
 
@@ -113,4 +115,28 @@ func (ps *PostgresStorage) UpdateStatus(id string, status string, checkedAt time
 		return fmt.Errorf("no record found to update with id %s", id)
 	}
 	return nil
+}
+
+func (ps *PostgresStorage) FindByAddress(address string) (model.URL, error) {
+	ctx := context.Background()
+
+	const query = `
+		SELECT id, address, status, checked_at
+		FROM urls
+		WHERE address = $1
+	`
+
+	var url model.URL
+	err := ps.db.QueryRow(ctx, query, address).Scan(
+		&url.ID, &url.Address, &url.Status, &url.CheckedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return model.URL{}, appErr.ErrNotFound
+		}
+		return model.URL{}, fmt.Errorf("find by address failed: %w", err)
+	}
+
+	return url, nil
 }
