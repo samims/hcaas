@@ -52,7 +52,8 @@ func main() {
 
 	// Setup router and server
 	port := ":8080"
-	r := router.NewRouter(urlHandler, healthHandler)
+
+	r := router.NewRouter(urlHandler, healthHandler, l)
 
 	server := &http.Server{
 		Addr:    port,

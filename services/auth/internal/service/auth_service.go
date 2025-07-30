@@ -7,6 +7,8 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/jackc/pgx/v5"
+
 	appErr "github.com/samims/hcaas/services/auth/internal/errors"
 	"github.com/samims/hcaas/services/auth/internal/model"
 	"github.com/samims/hcaas/services/auth/internal/storage"
@@ -25,9 +27,9 @@ type authService struct {
 	tokenSvc TokenService
 }
 
-func NewAuthService(store storage.UserStorage, logger *slog.Logger) AuthService {
+func NewAuthService(store storage.UserStorage, logger *slog.Logger, tokenSvc TokenService) AuthService {
 	l := logger.With("layer", "service", "component", "authService")
-	return &authService{store: store, logger: l}
+	return &authService{store: store, logger: l, tokenSvc: tokenSvc}
 }
 
 func (s *authService) Register(ctx context.Context, email, password string) (*model.User, error) {
@@ -58,16 +60,18 @@ func (s *authService) Login(ctx context.Context, email, password string) (*model
 
 	user, err := s.store.GetUserByEmail(ctx, email)
 	if err != nil {
-		if errors.Is(err, appErr.ErrNotFound) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			s.logger.Warn("User not found", slog.String("email", email))
-			return nil, "", appErr.ErrNotFound
+			return nil, "", appErr.ErrUnauthorized
 		}
-		s.logger.Error("User fetch failed", slog.Any("error", err))
+		s.logger.Error("Failed to fetch user by email", slog.String("email", email), slog.Any("error", err))
 		return nil, "", appErr.ErrInternal
 	}
+	s.logger.Info("Log in user found", slog.String("email", email))
 
+	// Compare the provided password with the stored hashed password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
-		s.logger.Warn("Invalid credentials", slog.String("email", email))
+		s.logger.Warn("Invalid password", slog.String("email", email))
 		return nil, "", appErr.ErrUnauthorized
 	}
 	token, err := s.tokenSvc.GenerateToken(user)
@@ -76,7 +80,7 @@ func (s *authService) Login(ctx context.Context, email, password string) (*model
 		return nil, "", appErr.ErrTokenGeneration
 	}
 
-	s.logger.Info("Login succeeded", slog.String("email", email))
+	s.logger.Info("Token Generated successfully", slog.String("email", email))
 	return user, token, nil
 }
 

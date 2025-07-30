@@ -65,7 +65,6 @@ func (h *URLHandler) Add(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	h.logger.Info("URL added", "url", url)
 	w.WriteHeader(http.StatusCreated)
 }
 

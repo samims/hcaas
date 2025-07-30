@@ -1,6 +1,8 @@
 package service
 
 import (
+	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -16,13 +18,20 @@ type TokenService interface {
 type jwtService struct {
 	secret     string
 	expiryTime time.Duration
+	logger     *slog.Logger
 }
 
-func NewJWTService(secret string, expiry time.Duration) TokenService {
-	return &jwtService{secret: secret, expiryTime: expiry}
+func NewJWTService(secret string, expiry time.Duration, logger *slog.Logger) TokenService {
+	return &jwtService{secret: secret, expiryTime: expiry, logger: logger}
 }
 
 func (s *jwtService) GenerateToken(user *model.User) (string, error) {
+	if user == nil {
+		s.logger.Error("error generating token")
+		return "", errors.New("user is nil: cannot generate token")
+	}
+	s.logger.Info("token expiry time", slog.Duration("time", s.expiryTime))
+
 	claims := jwt.MapClaims{
 		"sub":   user.ID,
 		"email": user.Email,
@@ -39,15 +48,18 @@ func (s *jwtService) ValidateToken(tokenStr string) (string, error) {
 	})
 
 	if err != nil || !token.Valid {
+		s.logger.Error("Invalid token ")
 		return "", err
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
+		s.logger.Error("token verification failed malformed")
 		return "", jwt.ErrTokenMalformed
 	}
 	sub, ok := claims["sub"].(string)
 	if !ok {
+		s.logger.Error("token verification failed malformed!")
 		return "", jwt.ErrTokenMalformed
 	}
 	return sub, nil
