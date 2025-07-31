@@ -28,8 +28,18 @@ var (
 		},
 		[]string{"status"},
 	)
+
+	//URLCheckDuration checks how much time take to ping the url
+	URLCheckDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "url_check_duration_seconds",
+			Help:    "Duration of URL health checks",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"status"},
+	)
 )
 
 func Init() {
-	prometheus.MustRegister(RequestCount, RequestDuration, URLCheckStatus)
+	prometheus.MustRegister(RequestCount, RequestDuration, URLCheckStatus, URLCheckDuration)
 }
