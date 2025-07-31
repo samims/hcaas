@@ -99,7 +99,7 @@ func (uc *URLChecker) ping(parentCtx context.Context, target string) string {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
 		uc.logger.Warn("Failed to create HTTP request", slog.String("address", target), slog.Any("error", err))
-		metrics.URLCheckStatus.WithLabelValues("down").Inc()
+		metrics.URLCheckStatus.WithLabelValues(model.StatusDown).Inc()
 		return UnHealthy
 	}
 
@@ -109,8 +109,8 @@ func (uc *URLChecker) ping(parentCtx context.Context, target string) string {
 
 	if err != nil {
 		uc.logger.Warn("HTTP request failed", slog.String("address", target), slog.Any("error", err))
-		metrics.URLCheckStatus.WithLabelValues("down").Inc()
-		metrics.URLCheckDuration.WithLabelValues("down").Observe(duration)
+		metrics.URLCheckStatus.WithLabelValues(model.StatusDown).Inc()
+		metrics.URLCheckDuration.WithLabelValues(model.StatusDown).Observe(duration)
 		return UnHealthy
 	}
 	defer resp.Body.Close()
@@ -120,12 +120,12 @@ func (uc *URLChecker) ping(parentCtx context.Context, target string) string {
 			slog.String("address", target),
 			slog.Int("statusCode", resp.StatusCode),
 		)
-		metrics.URLCheckStatus.WithLabelValues("down").Inc()
-		metrics.URLCheckDuration.WithLabelValues("down").Observe(duration)
+		metrics.URLCheckStatus.WithLabelValues(model.StatusDown).Inc()
+		metrics.URLCheckDuration.WithLabelValues(model.StatusDown).Observe(duration)
 		return UnHealthy
 	}
 
-	metrics.URLCheckStatus.WithLabelValues("up").Inc()
-	metrics.URLCheckDuration.WithLabelValues("up").Observe(duration)
+	metrics.URLCheckStatus.WithLabelValues(model.StatusUP).Inc()
+	metrics.URLCheckDuration.WithLabelValues(model.StatusUP).Observe(duration)
 	return Healthy
 }

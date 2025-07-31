@@ -8,3 +8,9 @@ type URL struct {
 	Status    string    `json:"status"`     // "up" or "down"
 	CheckedAt time.Time `json:"checked_at"` // last checked time
 }
+
+const (
+	StatusUnknown = "unknown"
+	StatusUP      = "up"
+	StatusDown    = "down"
+)

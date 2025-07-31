@@ -54,6 +54,7 @@ func (h *URLHandler) Add(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
+	url.Status = model.StatusUnknown
 
 	if err := h.svc.Add(r.Context(), url); err != nil {
 		if errors.IsInternal(err) {
