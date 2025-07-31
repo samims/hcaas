@@ -98,12 +98,39 @@ services:
     networks:
       - hcaas_backend_network
 
+  hcaas_notification:
+    container_name: hcaas_notification
+    build:
+      context: ./services/notification
+    ports:
+      - "8082:8082"
+    networks:
+      - hcaas_backend_network
+
+
+  hcaas_notification_db:
+    image: postgres:16-alpine
+    container_name: hcaas_notification_db
+    restart: always
+    environment:
+      POSTGRES_DB: hcaas_notification_db
+      POSTGRES_USER: hcaas_notification_user
+      POSTGRES_PASSWORD: hcaas_notification_pass
+    volumes:
+      - hcaas_notif_data:/var/lib/postgresql/data
+      - ./infra/postgres/notification.sql:/docker-entrypoint-initdb.d/init.sql
+
+    ports:
+      - "5434:5432" # expose on different port if main pg is using 5432
+
+
 
 
 volumes:
   pgdata:
   hcaas_auth_db_data:
   grafana-storage:
+  hcaas_notif_data:
 
 networks:
   hcaas_backend_network:
