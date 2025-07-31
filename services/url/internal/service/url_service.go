@@ -65,7 +65,7 @@ func (s *urlService) Add(_ context.Context, url model.URL) error {
 	_, err := s.store.FindByAddress(url.Address)
 	if err == nil {
 		s.logger.Warn("URL address already exists", slog.String("address", url.Address))
-		return appErr.NewInternal("URL address %s already exists", url.Address)
+		return appErr.NewConflict("URL address %s already exists", url.Address)
 	} else if !errors.Is(err, appErr.ErrNotFound) {
 		s.logger.Error("failed to check URL address uniqueness", slog.String("address", url.Address), slog.String("error", err.Error()))
 		return appErr.NewInternal("failed to check URL address uniqueness: %v", err)
@@ -77,13 +77,13 @@ func (s *urlService) Add(_ context.Context, url model.URL) error {
 	if err := s.store.Save(&url); err != nil {
 		if errors.Is(err, appErr.ErrConflict) {
 			s.logger.Warn("URL already exists", slog.String("id", url.ID))
-			return appErr.NewInternal("URL with ID %s already exists", url.ID)
+			return appErr.NewConflict("URL with ID %s already exists", url.ID)
 		}
 		s.logger.Error("failed to add URL", slog.String("id", url.ID), slog.String("error", err.Error()))
 
 		return appErr.NewInternal("failed to add URL: %v", err)
 	}
-	s.logger.Info("GetByID succeeded", slog.String("id", url.ID))
+	s.logger.Info("Add succeeded", slog.String("id", url.ID))
 
 	return nil
 }
