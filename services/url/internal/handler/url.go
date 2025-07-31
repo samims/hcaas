@@ -90,6 +90,5 @@ func (h *URLHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	h.logger.Info("URL status updated", "id", id, "status", body.Status)
 	w.WriteHeader(http.StatusOK)
 }
