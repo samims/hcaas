@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	appErr "github.com/samims/hcaas/services/url/internal/errors"
@@ -84,15 +85,20 @@ func (ps *PostgresStorage) Save(url *model.URL) error {
 	ctx := context.Background()
 
 	const queryStr = `
-		INSERT INTO urls(address, status, checked_at)
-		VALUES ($1, $2, $3)
+		INSERT INTO urls(id, address, status, checked_at)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id
 	`
 
-	err := ps.db.QueryRow(ctx, queryStr, url.Address, url.Status, url.CheckedAt).Scan(&url.ID)
-
+	err := ps.db.QueryRow(ctx, queryStr, url.ID, url.Address, url.Status, url.CheckedAt).Scan(&url.ID)
 	if err != nil {
-		return fmt.Errorf("failed to save url: %w", err)
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == "23505" { // unique_violation
+				return appErr.ErrConflict
+			}
+		}
+		return fmt.Errorf("failed to save URL: %w", err)
 	}
 
 	return nil
