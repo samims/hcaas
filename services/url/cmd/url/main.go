@@ -21,7 +21,7 @@ import (
 )
 
 func main() {
-	l := logger.NewJSONLogger()
+	l := logger.NewLogger()
 	slog.SetDefault(l)
 
 	metrics.Init()
