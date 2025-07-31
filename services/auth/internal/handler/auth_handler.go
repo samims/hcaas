@@ -9,6 +9,10 @@ import (
 	"github.com/samims/hcaas/services/auth/internal/service"
 )
 
+const (
+	KeyError = "error"
+)
+
 type AuthHandler struct {
 	authSvc service.AuthService
 	logger  *slog.Logger
@@ -22,7 +26,7 @@ func NewAuthHandler(authSvc service.AuthService, logger *slog.Logger) *AuthHandl
 func respondError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"error": message})
+	json.NewEncoder(w).Encode(map[string]string{KeyError: message})
 }
 
 // Register handles User Registration/Signup
