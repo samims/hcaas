@@ -6,54 +6,30 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("resource not found")
-	ErrConflict = errors.New("resource already exists")
+	ErrNotFound = errors.New("not found")
+	ErrConflict = errors.New("conflict")
 )
 
-type ErrorType string
-
-const (
-	NotFound ErrorType = "NOT_FOUND"
-	Internal ErrorType = "INTERNAL"
-)
-
-type AppError struct {
-	Type    ErrorType
-	Message string
-	Err     error
+func NewInternal(format string, a ...interface{}) error {
+	return fmt.Errorf("INTERNAL: "+format, a...)
 }
 
-func (e *AppError) Error() string {
-	return fmt.Sprintf("%s: %s", e.Type, e.Message)
+func NewNotFound(format string, a ...interface{}) error {
+	return fmt.Errorf("NOT FOUND: "+format, a...)
 }
 
-func (e *AppError) Unwrap() error {
-	return e.Err
-}
-
-func NewNotFound(msg string) *AppError {
-	return &AppError{Type: NotFound, Message: msg}
-}
-
-func NewInternal(format string, args ...interface{}) *AppError {
-	return &AppError{
-		Type:    Internal,
-		Message: fmt.Sprintf(format, args...),
-	}
+func NewConflict(format string, a ...interface{}) error {
+	return fmt.Errorf("CONFLICT: "+format, a...)
 }
 
 func IsNotFound(err error) bool {
-	var ae *AppError
-	if errors.As(err, &ae) {
-		return ae.Type == NotFound
-	}
-	return false
+	return errors.Is(err, ErrNotFound)
+}
+
+func IsConflict(err error) bool {
+	return errors.Is(err, ErrConflict)
 }
 
 func IsInternal(err error) bool {
-	var ae *AppError
-	if errors.As(err, &ae) {
-		return ae.Type == Internal
-	}
-	return false
+	return err != nil && !IsNotFound(err) && !IsConflict(err)
 }
