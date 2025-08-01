@@ -106,6 +106,7 @@ services:
       - "8082:8082"
     networks:
       - hcaas_backend_network
+      - hcaas_net
 
 
   hcaas_notification_db:
@@ -122,9 +123,36 @@ services:
 
     ports:
       - "5434:5432" # expose on different port if main pg is using 5432
+    networks:
+      - hcaas_net
 
+  hcaas_zookeeper:
+    image: bitnami/zookeeper:3.8
+    container_name: hcaas_zookeeper
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    ports:
+      - "2181:2181"
+    networks:
+      - hcaas_net
 
+  hcaas_kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: hcaas_kafka
+    depends_on:
+      - hcaas_zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: hcaas_zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://hcaas_kafka:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://hcaas_kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true" # automatically creates topic
 
+    networks:
+      - hcaas_net
 
 volumes:
   pgdata:
@@ -134,4 +162,6 @@ volumes:
 
 networks:
   hcaas_backend_network:
+    driver: bridge
+  hcaas_net:
     driver: bridge
