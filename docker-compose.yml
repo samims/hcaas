@@ -1,21 +1,25 @@
 services:
-  hcaas:
-    container_name: hcaas-web
+  hcaas_web:
+    container_name: hcaas_web
     build:
-      context: .
+      context: services/url
       dockerfile: Dockerfile
     depends_on:
       - hcaas_db
+      - hcaas_auth
     ports:
       - "8080:8080"
     restart: unless-stopped
     env_file:
-      - .env
+      - ./services/url/.env
     environment:
       - DATABASE_URL=postgres://hcaas_user:hcaas_pass@hcaas_db:5432/hcaas_db
       - ENV=production
+      - AUTH_SVC_URL=http://hcaas_auth:8081/
     volumes:
-      - .env:/.env
+      - ./services/url/.env:/.env
+    networks:
+      - hcaas_backend_network
 
   hcaas_db:
     container_name: hcaas_db
@@ -27,8 +31,107 @@ services:
       POSTGRES_DB: hcaas_db
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - hcaas_backend_network
+
+  hcaas_prometheus:
+    image: prom/prometheus:latest
+    container_name: hcaas_prometheus
+    volumes:
+      - ./infra/prometheus:/etc/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - hcaas_backend_network
+
+  hcaas_grafana:
+    image: grafana/grafana:latest
+    container_name: hcaas_grafana
+    depends_on:
+      - hcaas_prometheus
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=user
+      - GF_SECURITY_ADMIN_PASSWORD=pass#1234
+    networks:
+      - hcaas_backend_network
+
+  hcaas_node_exporter:
+    image: prom/node-exporter:latest
+    container_name: hcaas_node_exporter
+    ports:
+      - "9100:9100"
+    networks:
+      - hcaas_backend_network
+
+  hcaas_auth:
+    container_name: hcaas_auth
+    build:
+      context: ./services/auth
+    env_file:
+      - ./services/auth/.env
+    ports:
+      - "8081:8081"
+    depends_on:
+      - hcaas_auth_db
+    networks:
+      - hcaas_backend_network
+
+
+  hcaas_auth_db:
+    container_name: hcaas_auth_db
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: hcaas_auth_user
+      POSTGRES_PASSWORD: hcaas_auth_pass
+      POSTGRES_DB: hcaas_auth_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - hcaas_auth_db_data:/var/lib/postgresql/data
+      - ./infra/postgres/auth_init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - hcaas_backend_network
+
+  hcaas_notification:
+    container_name: hcaas_notification
+    build:
+      context: ./services/notification
+    ports:
+      - "8082:8082"
+    networks:
+      - hcaas_backend_network
+
+
+  hcaas_notification_db:
+    image: postgres:16-alpine
+    container_name: hcaas_notification_db
+    restart: always
+    environment:
+      POSTGRES_DB: hcaas_notification_db
+      POSTGRES_USER: hcaas_notification_user
+      POSTGRES_PASSWORD: hcaas_notification_pass
+    volumes:
+      - hcaas_notif_data:/var/lib/postgresql/data
+      - ./infra/postgres/notification.sql:/docker-entrypoint-initdb.d/init.sql
+
+    ports:
+      - "5434:5432" # expose on different port if main pg is using 5432
+
+
 
 
 volumes:
   pgdata:
+  hcaas_auth_db_data:
+  grafana-storage:
+  hcaas_notif_data:
+
+networks:
+  hcaas_backend_network:
+    driver: bridge

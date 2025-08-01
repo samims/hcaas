@@ -29,10 +29,9 @@ go.work.sum
 *.log
 
 # Environment files
-.env
-.env.*
+*.env
 
 # Postgres data or dumps
 *.sql
 *.dump
-go.sum
+*go.sum
