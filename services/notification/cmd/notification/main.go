@@ -7,11 +7,13 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/samims/hcaas/services/notification/internal/handler"
+	"github.com/samims/hcaas/services/notification/internal/kafka"
 	"github.com/samims/hcaas/services/notification/internal/service"
 )
 
 func main() {
 	r := chi.NewRouter()
+	go kafka.ConsumeFailureEvents()
 
 	svc := service.NewNotificationService()
 	h := handler.NewNotificationHandler(svc)
