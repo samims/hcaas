@@ -1,0 +1,65 @@
+name: Go Tests
+
+on:
+  push:
+    branches: ["*"]
+  pull_request:
+    branches: ["main", "dev"]
+
+jobs:
+  tests-auth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.24.4
+      - name: Build
+        run: |
+          cd auth
+          go mod tidy
+          go build
+      - name: Test
+        run: |
+          cd auth
+          go mod tidy
+          go test -v ./...
+
+  tests-notification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.24.4
+      - name: Build
+        run: |
+          cd notification
+          go mod tidy
+          go build
+      - name: Test
+        run: |
+          cd notification
+          go mod tidy
+          go test -v ./...
+
+  tests-url:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.24.4
+      - name: Build
+        run: |
+          cd url
+          go mod tidy
+          go build
+      - name: Test
+        run: |
+          cd url
+          go mod tidy
+          go test -v ./...
