@@ -22,6 +22,9 @@ func NewPostgresStorage(db *sqlx.DB) (NotificationStorage, error) {
 
 // Save inserts a new notification with status pending
 func (s *postgresStorage) Save(ctx context.Context, notif *model.Notification) error {
+	if notif == nil {
+		return fmt.Errorf("notification cannot be nil")
+	}
 	query := `INSERT INTO notifications
 		(url_id, type, message, status, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at, updated_at`
