@@ -23,7 +23,7 @@ func (h *NotificationHandler) Notify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.service.SendNotification(r.Context(), &notification)
+	err := h.service.Send(r.Context(), &notification)
 	if err != nil {
 		http.Error(w, "failed to send notification", http.StatusInternalServerError)
 		return
