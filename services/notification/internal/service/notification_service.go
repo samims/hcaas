@@ -49,8 +49,11 @@ func NewNotificationService(
 
 // Send sends the notification
 func (s *notificationService) Send(ctx context.Context, n *model.Notification) error {
+	if n == nil {
+		return fmt.Errorf("notification cannot be nil")
+	}
 	// Simulate sending notification service
-	s.l.Info("Notification service send called with url ", n.UrlId)
+	s.l.Info("Notification service send called with url ", slog.String("url_id", n.UrlId))
 	n.Status = model.StatusPending
 	n.CreatedAt = time.Now()
 	n.UpdatedAt = n.CreatedAt
@@ -124,6 +127,9 @@ func (s *notificationService) processBatch(ctx context.Context) error {
 
 // processNotification handles delivery and updates status
 func (s *notificationService) processNotification(ctx context.Context, n *model.Notification) error {
+	if n == nil {
+		return fmt.Errorf("notification cannot be nil")
+	}
 	start := time.Now()
 	s.l.InfoContext(ctx, "Attempting to deliver notification", slog.Int("id", n.ID), slog.String("url_id", n.UrlId))
 

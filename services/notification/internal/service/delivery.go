@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -25,6 +26,9 @@ func NewDeliveryService(log *slog.Logger) DeliveryService {
 
 // Deliver simulates the delivery of a notification
 func (s *deliveryService) Deliver(ctx context.Context, n *model.Notification) error {
+	if n == nil {
+		return fmt.Errorf("notification cannot be nil")
+	}
 	s.log.Info("Simulating delivery", slog.String("type", n.Type), slog.String("url_id", n.UrlId))
 	time.Sleep(500 * time.Millisecond) // simulating network latency for now
 	return nil
