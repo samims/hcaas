@@ -2,53 +2,128 @@ package kafka
 
 import (
 	"context"
-	"log"
+	"encoding/json"
+	"errors"
+	"log/slog"
 	"time"
 
-	"github.com/segmentio/kafka-go"
+	"github.com/IBM/sarama"
+
+	"github.com/samims/hcaas/services/notification/internal/model"
+	"github.com/samims/hcaas/services/notification/internal/service"
 )
 
-func ConsumeFailureEvents() {
-	// Kafka config
-	topic := "url_failures"
-	group := "notification-group"
-	broker := "hcaas_kafka:9092"
+// Consumer is responsible for handling Kafka message consumption from a topic using a consumer group.
+type Consumer struct {
+	topic           string
+	notificationSvc service.NotificationService
+	consumerGroup   sarama.ConsumerGroup
+	log             *slog.Logger
+}
 
-	ctx := context.Background()
+// NewKafkaConsumer constructs a new Kafka Consumer.
+// It receives its consumer group via dependency injection.
+func NewKafkaConsumer(
+	topic string,
+	consumerGroup sarama.ConsumerGroup,
+	notificationSvc service.NotificationService,
+	log *slog.Logger,
+) *Consumer {
+	return &Consumer{
+		topic:           topic,
+		consumerGroup:   consumerGroup,
+		notificationSvc: notificationSvc,
+		log:             log,
+	}
+}
 
-	// Create Kafka reader (consumer)
-	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:     []string{broker},
-		Topic:       topic,
-		GroupID:     group,
-		MinBytes:    10e3, // 10KB
-		MaxBytes:    10e6, // 10MB
-		MaxWait:     1 * time.Second,
-		MaxAttempts: 10,
-	})
-
+// Start begins the Kafka consumer loop, listening for messages on the configured topic.
+// It will block until the context is canceled or the consumer group is closed.
+func (c *Consumer) Start(ctx context.Context) error {
 	defer func() {
-		if err := reader.Close(); err != nil {
-			log.Printf("[ERROR] Failed to close reader: %v", err)
+		if err := c.consumerGroup.Close(); err != nil {
+			c.log.Warn("Failed to close consumer group", slog.Any("error", err))
 		}
 	}()
 
-	log.Printf("[INFO] Kafka consumer started | broker=%s | topic=%s | group=%s", broker, topic, group)
+	c.log.Info("Kafka consumer started", slog.String("topic", c.topic))
 
-	// Loop to read messages
+	backoff := 1 * time.Second
 	for {
-		msg, err := reader.ReadMessage(ctx)
+		// Consume blocks until an error occurs or context is cancelled.
+		err := c.consumerGroup.Consume(ctx, []string{c.topic}, c)
 		if err != nil {
-			log.Printf("[ERROR] Failed to read message: %v", err)
+			c.log.Error("Error consuming messages", slog.Any("error", err))
+
+			// Exit if consumer group is closed
+			if errors.Is(err, sarama.ErrClosedConsumerGroup) {
+				return err
+			}
+
+			// Back off on transient errors
+			time.Sleep(backoff)
+			if backoff < 30*time.Second {
+				backoff *= 2
+			}
 			continue
 		}
 
-		log.Printf("[MESSAGE] Received at %s | partition=%d offset=%d key=%s value=%s",
-			time.Now().Format(time.RFC3339),
-			msg.Partition,
-			msg.Offset,
-			string(msg.Key),
-			string(msg.Value),
+		if ctx.Err() != nil {
+			c.log.Info("Context cancelled, stopping consumer")
+			return ctx.Err()
+		}
+	}
+}
+
+// Setup is called once when a new consumer session starts.
+// It's a good place to log which partitions this instance is assigned to.
+func (c *Consumer) Setup(session sarama.ConsumerGroupSession) error {
+	for topic, partitions := range session.Claims() {
+		c.log.Info("Partition assignment",
+			slog.String("topic", topic),
+			slog.Any("partitions", partitions),
 		)
 	}
+	return nil
+}
+
+// Cleanup is called once when the consumer session ends (rebalance, shutdown, etc).
+func (c *Consumer) Cleanup(_ sarama.ConsumerGroupSession) error {
+	c.log.Info("Kafka session cleanup complete")
+	return nil
+}
+
+// ConsumeClaim is where the actual message consumption and processing happens.
+// Kafka calls this method for each assigned partition.
+func (c *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+
+	// fetches message & send to business logic
+	for message := range claim.Messages() {
+		c.log.Debug("Message received",
+			slog.String("topic", message.Topic),
+			slog.Int("partition", int(message.Partition)),
+			slog.Int64("offset", message.Offset),
+		)
+
+		// Parse the message
+		var notif model.Notification
+		if err := json.Unmarshal(message.Value, &notif); err != nil {
+			c.log.Error("Failed to decode message", slog.Any("error", err))
+			// skip the gibberish messages
+			session.MarkMessage(message, "")
+			continue
+		}
+
+		/*
+		 NOTE: This is the core business logic call
+		*/
+		if err := c.notificationSvc.Send(session.Context(), &notif); err != nil {
+			c.log.Error("Notification handling failed", slog.Any("error", err))
+			continue
+		}
+
+		// Mark the message as processed (committed offset)
+		session.MarkMessage(message, "")
+	}
+	return nil
 }

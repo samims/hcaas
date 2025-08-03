@@ -102,27 +102,39 @@ services:
     container_name: hcaas_notification
     build:
       context: ./services/notification
+    depends_on:
+      hcaas_notification_db:
+        condition: service_healthy
+      hcaas_kafka:
+        condition: service_healthy
+    env_file:
+      - ./services/notification/.env
+    environment:
+      - DB_URL=postgres://hcaas_notification_user:hcaas_notification_pass@hcaas_notification_db:5432/hcaas_notification_db?sslmode=disable
     ports:
       - "8082:8082"
     networks:
-      - hcaas_backend_network
       - hcaas_net
-
 
   hcaas_notification_db:
     image: postgres:16-alpine
     container_name: hcaas_notification_db
     restart: always
     environment:
-      POSTGRES_DB: hcaas_notification_db
       POSTGRES_USER: hcaas_notification_user
+      POSTGRES_DB: hcaas_notification_db
       POSTGRES_PASSWORD: hcaas_notification_pass
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U hcaas_notification_user -d hcaas_notification_db" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
     volumes:
       - hcaas_notif_data:/var/lib/postgresql/data
-      - ./infra/postgres/notification.sql:/docker-entrypoint-initdb.d/init.sql
-
+      - ./infra/postgres/notif.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "5434:5432" # expose on different port if main pg is using 5432
+      - "5434:5432"
     networks:
       - hcaas_net
 
@@ -148,9 +160,14 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: hcaas_zookeeper:2181
       KAFKA_LISTENERS: PLAINTEXT://hcaas_kafka:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://hcaas_kafka:9092
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true" # automatically creates topic
-
+    healthcheck:
+      test: [ "CMD-SHELL", "nc -z hcaas_kafka 9092 || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - hcaas_net
 
