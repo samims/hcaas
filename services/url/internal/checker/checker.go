@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/samims/hcaas/services/url/internal/kafka"
 	"github.com/samims/hcaas/services/url/internal/metrics"
 	"github.com/samims/hcaas/services/url/internal/model"
 	"github.com/samims/hcaas/services/url/internal/service"
@@ -18,18 +19,30 @@ const (
 )
 
 type URLChecker struct {
-	svc        service.URLService
-	logger     *slog.Logger
-	httpClient *http.Client
-	interval   time.Duration
+	svc                  service.URLService
+	logger               *slog.Logger
+	httpClient           *http.Client
+	interval             time.Duration
+	notificationProducer kafka.NotificationProducer
 }
 
-func NewURLChecker(svc service.URLService, logger *slog.Logger, client *http.Client, interval time.Duration) *URLChecker {
+func NewURLChecker(
+	svc service.URLService,
+	logger *slog.Logger,
+	client *http.Client,
+	interval time.Duration,
+	producer kafka.NotificationProducer,
+) *URLChecker {
+	if producer == nil {
+		// This panic indicates a serious configuration error that should be caught
+		panic("NewURLChecker: notificationProducer cannot be nil")
+	}
 	return &URLChecker{
-		svc:        svc,
-		logger:     logger,
-		httpClient: client,
-		interval:   interval,
+		svc:                  svc,
+		logger:               logger,
+		httpClient:           client,
+		interval:             interval,
+		notificationProducer: producer,
 	}
 }
 
@@ -70,6 +83,7 @@ func (uc *URLChecker) CheckAllURLs(ctx context.Context) {
 			uc.logger.Info("Checking URL", slog.String("id", url.ID), slog.String("address", url.Address))
 
 			status := uc.ping(ctx, url.Address)
+			uc.logger.Info("After ping", slog.String("url_id", url.ID), slog.Any("address", url.Address), slog.String("status", status))
 
 			err := uc.svc.UpdateStatus(ctx, url.ID, status)
 			if err != nil {
@@ -84,6 +98,22 @@ func (uc *URLChecker) CheckAllURLs(ctx context.Context) {
 					slog.String("address", url.Address),
 					slog.String("status", status),
 				)
+
+				if status == UnHealthy {
+					notification := model.Notification{
+						UrlID:     url.ID,
+						Type:      "url_unhealthy",
+						Message:   "URL is unhealthy: " + url.Address,
+						Status:    "pending",
+						CreatedAt: time.Now(),
+					}
+
+					if err := uc.notificationProducer.Publish(ctx, notification); err != nil {
+						uc.logger.Error("Failed to publish notification",
+							slog.String("url_id", url.ID),
+							slog.Any("error", err))
+					}
+				}
 			}
 		}(url)
 	}
