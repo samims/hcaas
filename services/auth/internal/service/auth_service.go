@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"regexp"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -34,6 +35,16 @@ func NewAuthService(store storage.UserStorage, logger *slog.Logger, tokenSvc Tok
 
 func (s *authService) Register(ctx context.Context, email, password string) (*model.User, error) {
 	s.logger.Info("Register called", slog.String("email", email))
+
+	if !regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`).MatchString(email) {
+		s.logger.Error("Invalid email")
+		return nil, appErr.ErrInvalidEmail
+	}
+
+	if len(password) == 0 {
+		s.logger.Error("Invalid password")
+		return nil, appErr.ErrInvalidInput
+	}
 
 	hashedPass, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
