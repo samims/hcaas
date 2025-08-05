@@ -18,7 +18,7 @@ type AuthService interface {
 	Register(ctx context.Context, email, password string) (*model.User, error)
 	Login(ctx context.Context, email, password string) (*model.User, string, error)
 	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
-	ValidateToken(token string) (string, error)
+	ValidateToken(token string) (string, string, error)
 }
 
 type authService struct {
@@ -98,13 +98,13 @@ func (s *authService) GetUserByEmail(ctx context.Context, email string) (*model.
 	return user, nil
 }
 
-func (s *authService) ValidateToken(token string) (string, error) {
+func (s *authService) ValidateToken(token string) (string, string, error) {
 	s.logger.Info("ValidateToken called")
-	userID, err := s.tokenSvc.ValidateToken(token)
+	userID, email, err := s.tokenSvc.ValidateToken(token)
 	if err != nil {
 		s.logger.Info("Token validation failed", slog.String("error", err.Error()))
-		return "", err
+		return "", "", err
 	}
-	return userID, nil
+	return userID, email, nil
 
 }
