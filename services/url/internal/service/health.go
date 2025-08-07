@@ -14,7 +14,7 @@ type HealthService interface {
 }
 
 type healthService struct {
-	store  storage.HealthCheckStorage
+	store  storage.Storage
 	logger *slog.Logger
 }
 
@@ -38,7 +38,7 @@ func (s healthService) Readiness(ctx context.Context) error {
 	return nil
 }
 
-func NewHealthService(store storage.HealthCheckStorage, logger *slog.Logger) HealthService {
+func NewHealthService(store storage.Storage, logger *slog.Logger) HealthService {
 	l := logger.With("layer", "service", "component", "healthService")
 	return &healthService{store: store, logger: l}
 }

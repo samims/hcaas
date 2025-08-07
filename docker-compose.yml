@@ -5,8 +5,13 @@ services:
       context: services/url
       dockerfile: Dockerfile
     depends_on:
-      - hcaas_db
-      - hcaas_auth
+      hcaas_db:
+        condition: service_started
+      hcaas_auth:
+        condition: service_started
+      hcaas_kafka:
+        condition: service_healthy
+
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -20,6 +25,7 @@ services:
       - ./services/url/.env:/.env
     networks:
       - hcaas_backend_network
+      - hcaas_net
 
   hcaas_db:
     container_name: hcaas_db
@@ -34,6 +40,8 @@ services:
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - hcaas_backend_network
+    ports:
+      - "5432:5432"
 
   hcaas_prometheus:
     image: prom/prometheus:latest
@@ -107,6 +115,7 @@ services:
         condition: service_healthy
       hcaas_kafka:
         condition: service_healthy
+
     env_file:
       - ./services/notification/.env
     environment:

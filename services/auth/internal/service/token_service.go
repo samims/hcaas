@@ -12,7 +12,7 @@ import (
 
 type TokenService interface {
 	GenerateToken(user *model.User) (string, error)
-	ValidateToken(tokenStr string) (string, error)
+	ValidateToken(tokenStr string) (string, string, error)
 }
 
 type jwtService struct {
@@ -42,25 +42,27 @@ func (s *jwtService) GenerateToken(user *model.User) (string, error) {
 	return token.SignedString([]byte(s.secret))
 }
 
-func (s *jwtService) ValidateToken(tokenStr string) (string, error) {
+func (s *jwtService) ValidateToken(tokenStr string) (string, string, error) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (any, error) {
 		return []byte(s.secret), nil
 	})
 
 	if err != nil || !token.Valid {
 		s.logger.Error("Invalid token ")
-		return "", err
+		return "", "", err
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		s.logger.Error("token verification failed malformed")
-		return "", jwt.ErrTokenMalformed
+		return "", "", jwt.ErrTokenMalformed
 	}
-	sub, ok := claims["sub"].(string)
+	userID, ok := claims["sub"].(string)
 	if !ok {
 		s.logger.Error("token verification failed malformed!")
-		return "", jwt.ErrTokenMalformed
+		return "", "", jwt.ErrTokenMalformed
 	}
-	return sub, nil
+	email, ok := claims["email"].(string)
+
+	return userID, email, nil
 }
