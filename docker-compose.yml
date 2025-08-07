@@ -23,6 +23,7 @@ services:
       - ./services/url/.env:/.env
     networks:
       - hcaas_backend_network
+      - hcaas_net
 
   hcaas_auth:
     container_name: hcaas_auth
@@ -76,6 +77,8 @@ services:
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - hcaas_backend_network
+    ports:
+      - "5432:5432"
 
   hcaas_prometheus:
     image: prom/prometheus:latest

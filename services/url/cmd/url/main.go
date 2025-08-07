@@ -7,13 +7,16 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"time"
 
+	"github.com/IBM/sarama"
 	"github.com/joho/godotenv"
 
 	observability "github.com/samims/hcaas/pkg/observability"
 	"github.com/samims/hcaas/services/url/internal/checker"
 	"github.com/samims/hcaas/services/url/internal/handler"
+	"github.com/samims/hcaas/services/url/internal/kafka"
 	"github.com/samims/hcaas/services/url/internal/logger"
 	"github.com/samims/hcaas/services/url/internal/metrics"
 	"github.com/samims/hcaas/services/url/internal/router"
@@ -70,8 +73,40 @@ func main() {
 	urlSvc := service.NewURLService(ps, l)
 	healthSvc := service.NewHealthService(ps, l)
 
+	// Kafka producers setup
+	// TODO: will move to another place
+	kafkaBrokers := os.Getenv("KAFKA_BROKERS")
+	kafkaNotifTopic := os.Getenv("KAFKA_NOTIF_TOPIC")
+	if kafkaBrokers == "" || kafkaNotifTopic == "" {
+		l.Error("KAFKA_BROKERS or KAFKA_TOPIC not set")
+		os.Exit(1)
+	}
+
+	saramaConfig := sarama.NewConfig()
+	saramaConfig.Producer.RequiredAcks = sarama.WaitForAll // Acks from all replicas
+	saramaConfig.Producer.Retry.Max = 5
+	saramaConfig.Producer.Return.Successes = true
+	saramaConfig.ClientID = "url-service-producer"
+
+	kafkaAsyncProducer, err := sarama.NewAsyncProducer([]string{kafkaBrokers}, saramaConfig)
+
+	if err != nil {
+		l.Error("Failed to create sarama producer", slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	var wg sync.WaitGroup
+
+	l.Info("Before NewProducer")
+	notificationProducer := kafka.NewProducer(kafkaAsyncProducer, kafkaNotifTopic, l, &wg)
+	l.Info("After NewProducer")
+
+	l.Info("Calling notificationProducer.Start()")
+
+	notificationProducer.Start(ctx)
+
 	httpClient := &http.Client{Timeout: 5 * time.Second}
-	chkr := checker.NewURLChecker(urlSvc, l, httpClient, 1*time.Minute)
+	chkr := checker.NewURLChecker(urlSvc, l, httpClient, 1*time.Minute, notificationProducer)
 	go chkr.Start(ctx)
 
 	urlHandler := handler.NewURLHandler(urlSvc, l)

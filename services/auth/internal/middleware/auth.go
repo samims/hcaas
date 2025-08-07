@@ -10,10 +10,13 @@ import (
 
 type key string
 
-const userIDKey key = "userID"
+const (
+	contextUserIDKey key = "user_id"
+	contextEmailKey
+)
 
 func UserIDFromContext(ctx context.Context) (string, bool) {
-	uid, ok := ctx.Value(userIDKey).(string)
+	uid, ok := ctx.Value(contextUserIDKey).(string)
 	return uid, ok
 }
 
@@ -27,13 +30,15 @@ func AuthMiddleware(tokenService service.TokenService) func(http.Handler) http.H
 			}
 
 			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-			userID, err := tokenService.ValidateToken(tokenStr)
+			userID, email, err := tokenService.ValidateToken(tokenStr)
 			if err != nil {
 				http.Error(w, "invalid or expired token", http.StatusUnauthorized)
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), userIDKey, userID)
+			ctx := context.WithValue(r.Context(), contextUserIDKey, userID)
+			ctx = context.WithValue(ctx, contextEmailKey, email)
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

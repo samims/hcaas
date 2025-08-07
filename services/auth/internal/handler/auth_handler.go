@@ -97,12 +97,23 @@ func (h *AuthHandler) Validate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := strings.TrimPrefix(authHeader, "Bearer ")
-	userID, err := h.authSvc.ValidateToken(token)
+	userID, email, err := h.authSvc.ValidateToken(token)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "invalid token")
 	}
 
-	resp := map[string]string{"user_id": userID}
+	resp := struct {
+		UserID string `json:"user_id"`
+		Email  string `json:"email"` // Alternative field name
+	}{
+		UserID: userID,
+		Email:  email, // Set both fields for backward compatibility
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		h.logger.Error("Failed to encode validation response",
+			slog.String("error", err.Error()))
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }

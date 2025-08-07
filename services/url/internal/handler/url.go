@@ -24,10 +24,20 @@ func NewURLHandler(s service.URLService, logger *slog.Logger) *URLHandler {
 func (h *URLHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	urls, err := h.svc.GetAll(r.Context())
 	if err != nil {
-		h.logger.Error("GetAll failed", "error", err)
+		h.logger.Error("GetAll failed", slog.Any("error", err))
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	json.NewEncoder(w).Encode(urls)
+}
+
+func (h *URLHandler) GetAllByUserID(w http.ResponseWriter, r *http.Request) {
+	urls, err := h.svc.GetAllByUserID(r.Context())
+	if err != nil {
+		h.logger.Error("GetAllByUSerID failed", slog.Any("error", err))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
 	json.NewEncoder(w).Encode(urls)
 }
 
