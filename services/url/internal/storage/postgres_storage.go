@@ -14,30 +14,40 @@ import (
 	"github.com/samims/hcaas/services/url/internal/model"
 )
 
-type PostgresStorage struct {
+type Storage interface {
+	Ping(ctx context.Context) error
+	Save(url *model.URL) error
+	FindAll() ([]model.URL, error)
+	FindAllByUserID(ctx context.Context, userID string) ([]model.URL, error)
+	FindByID(id string) (model.URL, error)
+	FindByAddress(address string) (model.URL, error)
+	UpdateStatus(id, status string, checkedAt time.Time) error
+}
+
+type postgresStorage struct {
 	db *pgxpool.Pool
 }
 
-func NewPostgresStorage(pool *pgxpool.Pool) HealthCheckStorage {
-	return &PostgresStorage{pool}
+func NewPostgresStorage(pool *pgxpool.Pool) Storage {
+	return &postgresStorage{pool}
 }
 
-func (ps *PostgresStorage) Ping(ctx context.Context) error {
+func (ps *postgresStorage) Ping(ctx context.Context) error {
 	return ps.db.Ping(ctx)
 }
 
-func (ps *PostgresStorage) FindByID(id string) (model.URL, error) {
+func (ps *postgresStorage) FindByID(id string) (model.URL, error) {
 	ctx := context.Background()
 
 	const query = `
-		SELECT id, address, status, checked_at
+		SELECT id, user_id, address, status, checked_at, updated_at, created_at
 		FROM urls
 		WHERE id = $1
 	`
 
 	var url model.URL
 	err := ps.db.QueryRow(ctx, query, id).Scan(
-		&url.ID, &url.Address, &url.Status, &url.CheckedAt,
+		&url.ID, &url.UserID, &url.Address, &url.Status, &url.CheckedAt,
 	)
 
 	if err != nil {
@@ -50,11 +60,11 @@ func (ps *PostgresStorage) FindByID(id string) (model.URL, error) {
 	return url, nil
 }
 
-func (ps *PostgresStorage) FindAll() ([]model.URL, error) {
+func (ps *postgresStorage) FindAll() ([]model.URL, error) {
 	ctx := context.Background()
 
 	const query = `
-		SELECT id, address, status, checked_at
+		SELECT id, user_id, address, status, checked_at
 		FROM urls
 	`
 
@@ -68,7 +78,7 @@ func (ps *PostgresStorage) FindAll() ([]model.URL, error) {
 
 	for rows.Next() {
 		var url model.URL
-		if err := rows.Scan(&url.ID, &url.Address, &url.Status, &url.CheckedAt); err != nil {
+		if err := rows.Scan(&url.ID, &url.UserID, &url.Address, &url.Status, &url.CheckedAt); err != nil {
 			return nil, fmt.Errorf("scan failed: %w", err)
 		}
 		urls = append(urls, url)
@@ -81,16 +91,45 @@ func (ps *PostgresStorage) FindAll() ([]model.URL, error) {
 	return urls, nil
 }
 
-func (ps *PostgresStorage) Save(url *model.URL) error {
+func (ps *postgresStorage) FindAllByUserID(ctx context.Context, userID string) ([]model.URL, error) {
+	const query = `
+		SELECT id, user_id, address, status, checked_at
+		from urls
+		where user_id = $1
+	`
+	rows, err := ps.db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("query failed %w", err)
+	}
+	defer rows.Close()
+
+	var urls []model.URL
+
+	for rows.Next() {
+		var url model.URL
+		if err := rows.Scan(&url.ID, &url.UserID, &url.Address, &url.Status, &url.CheckedAt); err != nil {
+			return nil, fmt.Errorf("scan failed %w", err)
+		}
+		urls = append(urls, url)
+
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("row iteration failed %w", err)
+
+	}
+	return urls, nil
+
+}
+func (ps *postgresStorage) Save(url *model.URL) error {
 	ctx := context.Background()
 
 	const queryStr = `
-		INSERT INTO urls(id, address, status, checked_at)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO urls(id, user_id, address, status, checked_at)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id
 	`
 
-	err := ps.db.QueryRow(ctx, queryStr, url.ID, url.Address, url.Status, url.CheckedAt).Scan(&url.ID)
+	err := ps.db.QueryRow(ctx, queryStr, url.ID, url.UserID, url.Address, url.Status, url.CheckedAt).Scan(&url.ID)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
@@ -104,7 +143,7 @@ func (ps *PostgresStorage) Save(url *model.URL) error {
 	return nil
 }
 
-func (ps *PostgresStorage) UpdateStatus(id string, status string, checkedAt time.Time) error {
+func (ps *postgresStorage) UpdateStatus(id string, status string, checkedAt time.Time) error {
 	ctx := context.Background()
 	const query = `
 		UPDATE urls
@@ -123,18 +162,18 @@ func (ps *PostgresStorage) UpdateStatus(id string, status string, checkedAt time
 	return nil
 }
 
-func (ps *PostgresStorage) FindByAddress(address string) (model.URL, error) {
+func (ps *postgresStorage) FindByAddress(address string) (model.URL, error) {
 	ctx := context.Background()
 
 	const query = `
-		SELECT id, address, status, checked_at
+		SELECT id, user_id, address, status, checked_at
 		FROM urls
 		WHERE address = $1
 	`
 
 	var url model.URL
 	err := ps.db.QueryRow(ctx, query, address).Scan(
-		&url.ID, &url.Address, &url.Status, &url.CheckedAt,
+		&url.ID, &url.UserID, &url.Address, &url.Status, &url.CheckedAt,
 	)
 
 	if err != nil {

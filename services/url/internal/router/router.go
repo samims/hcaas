@@ -27,11 +27,12 @@ func NewRouter(h *handler.URLHandler, healthHandler *handler.HealthHandler, logg
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
 
-	r.With(authMiddleware).Route("/urls", func(r chi.Router) {
+	r.Route("/urls", func(r chi.Router) {
+		r.Use(authMiddleware)
 		r.Get("/", h.GetAll)
 		r.Get("/{id}", h.GetByID)
+		r.Get("/me", h.GetAllByUserID)
 		r.Post("/", h.Add)
-		r.Put("/{id}", h.UpdateStatus)
 	})
 
 	// Health & Readiness Routes
