@@ -11,6 +11,7 @@ import (
 
 	"github.com/joho/godotenv"
 
+	observability "github.com/samims/hcaas/pkg/observability"
 	"github.com/samims/hcaas/services/url/internal/checker"
 	"github.com/samims/hcaas/services/url/internal/handler"
 	"github.com/samims/hcaas/services/url/internal/logger"
@@ -18,6 +19,11 @@ import (
 	"github.com/samims/hcaas/services/url/internal/router"
 	"github.com/samims/hcaas/services/url/internal/service"
 	"github.com/samims/hcaas/services/url/internal/storage"
+)
+
+const (
+	serviceName       = "url-service"
+	collectorEndpoint = "otel-collector:4371" //mEnsure this matches your docker-compose setup
 )
 
 func main() {
@@ -31,6 +37,27 @@ func main() {
 	}
 
 	ctx := context.Background()
+	// ---- OpenTelemetry Tracing Setup ----
+	// Create a context for the tracer provider initialization and shutdown.
+	// This context will be used to signal the tracer to shut down gracefully.
+	tracerCtx, tracerCancel := context.WithCancel(ctx)
+	defer tracerCancel()
+
+	_, tracerShutdown, err := observability.NewTracerProvider(
+		tracerCtx,
+		serviceName,
+		collectorEndpoint,
+		l)
+
+	if err != nil {
+		l.Error("Failed to initialize OpenTelemetry TracerProvider", slog.Any("err", err))
+		os.Exit(1)
+	}
+	// IMPORTANT: Defer the tracer shutdown function to ensure all spans are flushed
+	// before the application exits.
+	defer tracerShutdown()
+	// --- End OpenTelemetry Tracing Setup ---
+
 	dbPool, err := storage.NewPostgresPool(ctx)
 	if err != nil {
 		l.Error("Failed to connect to database", "err", err)
@@ -53,7 +80,10 @@ func main() {
 	// Setup router and server
 	port := ":8080"
 
-	r := router.NewRouter(urlHandler, healthHandler, l)
+	r := router.NewRouter(urlHandler, healthHandler, l, serviceName)
+	// Apply OpenTelemetry HTTP server middleware to the router.
+	// This will automatically create spans for incoming requests and propagate context.
+	// Pass the service name to the middleware
 
 	server := &http.Server{
 		Addr:    port,
