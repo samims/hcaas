@@ -13,7 +13,7 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/joho/godotenv"
 
-	observability "github.com/samims/hcaas/pkg/observability"
+	"github.com/samims/hcaas/pkg/observability"
 	"github.com/samims/hcaas/services/url/internal/checker"
 	"github.com/samims/hcaas/services/url/internal/handler"
 	"github.com/samims/hcaas/services/url/internal/kafka"
@@ -25,8 +25,9 @@ import (
 )
 
 const (
-	serviceName       = "url-service"
-	collectorEndpoint = "otel-collector:4371" //mEnsure this matches your docker-compose setup
+	serviceName = "url-service"
+	//collectorEndpoint = "otel-collector:4371" //mEnsure this matches your docker-compose setup
+	collectorEndpoint = "hcaas_jaeger_all_in_one:4317"
 )
 
 func main() {

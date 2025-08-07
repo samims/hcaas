@@ -1,3 +1,4 @@
+// internal/observability/observability.go
 package observability
 
 import (
@@ -11,7 +12,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.21.0" // Using a consistent, up-to-date schema
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -24,8 +25,7 @@ type TracerProvider struct {
 }
 
 // NewTracerProvider initializes and returns a new TracerProvider.
-// This function uses the recommended `grpc.NewClient` for a non-blocking
-// connection to the OpenTelemetry collector.
+// The returned function should be called during application shutdown.
 func NewTracerProvider(
 	ctx context.Context,
 	serviceName string,
@@ -35,7 +35,6 @@ func NewTracerProvider(
 	logger.Info("Initializing OpenTelemetry Tracer", "service", serviceName, "collector", collectorEndpoint)
 
 	// Create a gRPC client connection to the OpenTelemetry collector.
-	// The first argument is the string target address, followed by options.
 	conn, err := grpc.NewClient(
 		collectorEndpoint,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -45,35 +44,33 @@ func NewTracerProvider(
 		return nil, nil, fmt.Errorf("failed to create gRPC connection: %w", err)
 	}
 
-	// Create an OTLP exporter over the gRPC connection we just created.
-	// This function correctly takes a context as its first argument.
+	// Create an OTLP exporter over the gRPC connection.
 	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
 	if err != nil {
 		logger.Error("Failed to create OTLP trace exporter", slog.Any("error", err))
-		conn.Close() // Close the connection if the exporter creation fails
+		// The connection should be closed if the exporter creation fails.
+		conn.Close()
 		return nil, nil, fmt.Errorf("failed to create OTLP trace exporter: %w", err)
 	}
 
-	// Set resource attributes (service name, environment, etc.)
-	res, err := resource.New(ctx,
-		resource.WithAttributes(
-			semconv.ServiceNameKey.String(serviceName),
-			// Set a unique identifier for this service instance using the container's hostname.
-			// Useful for distinguishing between different instances in observability tools.
-			semconv.ServiceInstanceID(os.Getenv("HOSTNAME")),
-		),
+	// Create a resource that describes this application.
+	// We use a single resource with explicit attributes to avoid schema conflicts.
+	// The resource.NewWithAttributes function does not return an error.
+	res := resource.NewWithAttributes(
+		semconv.SchemaURL,
+		semconv.ServiceName(serviceName),
+		semconv.ServiceVersion("1.0.0"),
+		// Set a unique identifier for this service instance using the container's hostname.
+		semconv.ServiceInstanceID(os.Getenv("HOSTNAME")),
 	)
-	if err != nil {
-		logger.Error("Failed to create OpenTelemetry resource", slog.Any("error", err))
-		conn.Close() // Close the connection if resource creation fails
-		return nil, nil, fmt.Errorf("failed to create resource: %w", err)
-	}
 
-	// Create tracer provider with a BatchSpanProcessor, which is the recommended
-	// way to process spans for production environments.
+	// Create a new trace provider with a BatchSpanProcessor, which is recommended
+	// for production environments.
+	bsp := trace.NewBatchSpanProcessor(exporter)
 	tp := trace.NewTracerProvider(
-		trace.WithBatcher(exporter),
+		trace.WithSampler(trace.AlwaysSample()),
 		trace.WithResource(res),
+		trace.WithSpanProcessor(bsp),
 	)
 
 	// Register the global tracer provider
