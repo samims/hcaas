@@ -8,12 +8,13 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/joho/godotenv"
 
-	"github.com/samims/hcaas/pkg/observability"
+	"github.com/samims/hcaas/pkg/tracing"
 	"github.com/samims/hcaas/services/url/internal/checker"
 	"github.com/samims/hcaas/services/url/internal/handler"
 	"github.com/samims/hcaas/services/url/internal/kafka"
@@ -26,11 +27,16 @@ import (
 
 const (
 	serviceName = "url-service"
-	//collectorEndpoint = "otel-collector:4371" //mEnsure this matches your docker-compose setup
-	collectorEndpoint = "hcaas_jaeger_all_in_one:4317"
+	// collectorEndpoint = "otel-collector:4371" //mEnsure this matches your docker-compose setup
+	// collectorEndpoint = "hcaas_jaeger_all_in_one:4317"
 )
 
 func main() {
+
+	// Setup signal handling for graceful shutdown
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	l := logger.NewLogger()
 	slog.SetDefault(l)
 
@@ -40,26 +46,23 @@ func main() {
 		l.Error("Error loading .env file", "err", err)
 	}
 
-	ctx := context.Background()
-	// ---- OpenTelemetry Tracing Setup ----
-	// Create a context for the tracer provider initialization and shutdown.
-	// This context will be used to signal the tracer to shut down gracefully.
-	tracerCtx, tracerCancel := context.WithCancel(ctx)
-	defer tracerCancel()
-
-	_, tracerShutdown, err := observability.NewTracerProvider(
-		tracerCtx,
-		serviceName,
-		collectorEndpoint,
-		l)
-
-	if err != nil {
-		l.Error("Failed to initialize OpenTelemetry TracerProvider", slog.Any("err", err))
+	// Create a new tracing configuration from environment variables.
+	tracerCfg := tracing.NewConfig()
+	if err := tracerCfg.Validate(); err != nil {
+		l.Error("Invalid tracing config", slog.Any("error", err))
 		os.Exit(1)
 	}
+
+	// ---- OpenTelemetry Tracing Setup ----
+	tracerShutdown, err := tracing.SetupTracing(ctx, l)
+	if err != nil {
+		l.Error("Failed to initialize OpenTelemetry TracerProvider", slog.Any("error", err))
+		os.Exit(1)
+	}
+
 	// IMPORTANT: Defer the tracer shutdown function to ensure all spans are flushed
 	// before the application exits.
-	defer tracerShutdown()
+	defer tracerShutdown(context.Background())
 	// --- End OpenTelemetry Tracing Setup ---
 
 	dbPool, err := storage.NewPostgresPool(ctx)

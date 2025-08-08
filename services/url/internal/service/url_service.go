@@ -65,26 +65,31 @@ func NewURLService(store storage.Storage, logger *slog.Logger) URLService {
 }
 
 // GetAllByUserID fetches urls for the user
-// TODO: Bug 	userID, err := getUserIDFromContext(ctx) is being called from checker
 func (s *urlService) GetAllByUserID(ctx context.Context) ([]model.URL, error) {
-	ctx, span := s.tracer.Start(ctx, "GetAll")
+	ctx, span := s.tracer.Start(ctx, "GetAllByUserID")
 	defer span.End()
 
-	s.logger.Info("GetAll called")
+	s.logger.Info("GetAllByUserID called")
 	userID, err := getUserIDFromContext(ctx)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
+	// Add the user ID as an attribute to the span.
+	span.SetAttributes(attribute.String("user.id", userID))
 
 	userURLs, err := s.store.FindAllByUserID(ctx, userID)
 	if err != nil {
 		s.logger.Error("failed to fetch URLs",
 			slog.String("error", err.Error()),
 			slog.String("user_id", userID))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return nil, appErr.NewInternal("failed to fetch URLs: %v", err)
 	}
-
-	s.logger.Info("GetAll succeeded", slog.Int("count", len(userURLs)), slog.String("user_id", userID))
+	span.SetAttributes(attribute.Int("url.count", len(userURLs)))
+	s.logger.Info("GetAllByUserID succeeded", slog.Int("count", len(userURLs)), slog.String("user_id", userID))
 	return userURLs, nil
 }
 
@@ -114,12 +119,15 @@ func (s *urlService) GetByID(ctx context.Context, id string) (*model.URL, error)
 	span.SetAttributes(attribute.String("url.id", id))
 	s.logger.Info("GetByID called", slog.String("id", id))
 
-	span.SetAttributes(attribute.String("url.id", id))
-
 	userID, err := getUserIDFromContext(ctx)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
+
+	span.SetAttributes(attribute.String("user.id", userID))
+	span.SetAttributes(attribute.String("url.id", userID))
 
 	url, err := s.store.FindByID(id)
 	if err != nil {
@@ -145,6 +153,8 @@ func (s *urlService) GetByID(ctx context.Context, id string) (*model.URL, error)
 			slog.String("id", id),
 			slog.String("requested_by", userID),
 			slog.String("owned_by", url.UserID))
+		ownershipErr := fmt.Errorf("URL access denied %s for user %s", id, userID)
+		span.RecordError(ownershipErr)
 		return nil, appErr.NewNotFound(fmt.Sprintf("URL with ID %s not found", id))
 	}
 
@@ -164,9 +174,12 @@ func (s *urlService) Add(ctx context.Context, url model.URL) error {
 
 	userID, err := getUserIDFromContext(ctx)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
 	url.UserID = userID
+	span.SetAttributes(attribute.String("user.id", userID))
 
 	// Check if URL address already exists for this user
 	existingURL, err := s.store.FindByAddress(url.Address)
@@ -174,12 +187,19 @@ func (s *urlService) Add(ctx context.Context, url model.URL) error {
 		s.logger.Warn("URL address already exists for user",
 			slog.String("address", url.Address),
 			slog.String("user_id", userID))
-		return appErr.NewConflict("URL address %s already exists", url.Address)
+		err = appErr.NewConflict("URL address %s already exists", url.Address)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
 	} else if !errors.Is(err, appErr.ErrNotFound) {
 		s.logger.Error("failed to check URL address uniqueness",
 			slog.String("address", url.Address),
-			slog.String("error", err.Error()))
-		return appErr.NewInternal("failed to check URL address uniqueness: %v", err)
+			slog.Any("error", err))
+		err = appErr.NewInternal("failed to check URL address uniqueness: %v", err)
+
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
 	}
 
 	if url.ID == "" {
