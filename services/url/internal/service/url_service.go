@@ -65,7 +65,7 @@ func NewURLService(store storage.Storage, logger *slog.Logger, tracer *tracing.T
 
 // GetAllByUserID fetches urls for the user
 func (s *urlService) GetAllByUserID(ctx context.Context) ([]model.URL, error) {
-	ctx, span := s.tracer.StartServerSpan(ctx, "GetAllByUserID")
+	ctx, span := s.tracer.StartServerSpan(ctx, "GetAllByUserID", attribute.String("file", "url_service"))
 	defer span.End()
 
 	s.logger.Info("GetAllByUserID called")
@@ -93,7 +93,7 @@ func (s *urlService) GetAllByUserID(ctx context.Context) ([]model.URL, error) {
 }
 
 func (s *urlService) GetAll(ctx context.Context) ([]model.URL, error) {
-	ctx, span := s.tracer.StartServerSpan(ctx, "GetAll")
+	ctx, span := s.tracer.StartServerSpan(ctx, "GetAll", attribute.String("file", "url_service"))
 	defer span.End()
 	s.logger.Info("GetAll called")
 
@@ -112,7 +112,7 @@ func (s *urlService) GetAll(ctx context.Context) ([]model.URL, error) {
 }
 
 func (s *urlService) GetByID(ctx context.Context, id string) (*model.URL, error) {
-	ctx, span := s.tracer.StartServerSpan(ctx, "GetByID")
+	ctx, span := s.tracer.StartServerSpan(ctx, "GetByID", attribute.String("file", "url_service"))
 	defer span.End()
 
 	span.SetAttributes(attribute.String("url.id", id))
@@ -162,7 +162,7 @@ func (s *urlService) GetByID(ctx context.Context, id string) (*model.URL, error)
 }
 
 func (s *urlService) Add(ctx context.Context, url model.URL) error {
-	ctx, span := s.tracer.StartServerSpan(ctx, "Add")
+	ctx, span := s.tracer.StartServerSpan(ctx, "Add", attribute.String("file", "url_service"))
 	defer span.End()
 
 	span.SetAttributes(
@@ -228,7 +228,7 @@ func (s *urlService) Add(ctx context.Context, url model.URL) error {
 func (s *urlService) UpdateStatus(ctx context.Context, id string, status string) error {
 	s.logger.Info("UpdateStatus called by bg task", slog.String("id", id), slog.String("status", status))
 
-	ctx, span := s.tracer.StartServerSpan(ctx, "UpdateStatus")
+	ctx, span := s.tracer.StartServerSpan(ctx, "UpdateStatus", attribute.String("file", "url_service"))
 	defer span.End()
 
 	span.SetAttributes(
