@@ -73,8 +73,9 @@ func main() {
 	defer dbPool.Close()
 
 	// Initialize layers
-	ps := storage.NewPostgresStorage(dbPool)
-	urlSvc := service.NewURLService(ps, l)
+	tracer := tracing.NewTracer(tracing.GetTracer(serviceName))
+	ps := storage.NewPostgresStorage(dbPool, tracer)
+	urlSvc := service.NewURLService(ps, l, tracer)
 	healthSvc := service.NewHealthService(ps, l)
 
 	// Kafka producers setup
@@ -102,7 +103,7 @@ func main() {
 	var wg sync.WaitGroup
 
 	l.Info("Before NewProducer")
-	notificationProducer := kafka.NewProducer(kafkaAsyncProducer, kafkaNotifTopic, l, &wg)
+	notificationProducer := kafka.NewProducer(kafkaAsyncProducer, kafkaNotifTopic, l, &wg, tracer)
 	l.Info("After NewProducer")
 
 	l.Info("Calling notificationProducer.Start()")
@@ -110,7 +111,7 @@ func main() {
 	notificationProducer.Start(ctx)
 
 	httpClient := &http.Client{Timeout: 5 * time.Second}
-	chkr := checker.NewURLChecker(urlSvc, l, httpClient, 1*time.Minute, notificationProducer)
+	chkr := checker.NewURLChecker(urlSvc, l, httpClient, 1*time.Minute, notificationProducer, tracer)
 	go chkr.Start(ctx)
 
 	urlHandler := handler.NewURLHandler(urlSvc, l)
