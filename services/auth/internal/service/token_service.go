@@ -44,6 +44,11 @@ func (s *jwtService) GenerateToken(user *model.User) (string, error) {
 
 func (s *jwtService) ValidateToken(tokenStr string) (string, string, error) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (any, error) {
+		// Validate the signing method to prevent algorithm confuses attack
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			s.logger.Error("Unexpected signing method", slog.String("method", token.Header["alg"].(string)))
+			return nil, jwt.ErrSignatureInvalid
+		}
 		return []byte(s.secret), nil
 	})
 
@@ -63,6 +68,9 @@ func (s *jwtService) ValidateToken(tokenStr string) (string, string, error) {
 		return "", "", jwt.ErrTokenMalformed
 	}
 	email, ok := claims["email"].(string)
+	if !ok {
+		s.logger.Error("Invalid email", slog.String("email", email))
+	}
 
 	return userID, email, nil
 }
