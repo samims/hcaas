@@ -37,6 +37,7 @@ func (s *jwtService) GenerateToken(user *model.User) (string, error) {
 		"email": user.Email,
 		"exp":   time.Now().Add(s.expiryTime).Unix(),
 		"iat":   time.Now().Unix(),
+		"nbf":   time.Now().Unix(), // Not valid before now
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(s.secret))
@@ -69,7 +70,27 @@ func (s *jwtService) ValidateToken(tokenStr string) (string, string, error) {
 	}
 	email, ok := claims["email"].(string)
 	if !ok {
-		s.logger.Error("Invalid email", slog.String("email", email))
+		s.logger.Error("Invalid email claim", slog.String("email", email))
+		return "", "", jwt.ErrTokenMalformed
+	}
+
+	// validate time based claims
+	now := time.Now().Unix()
+
+	// check expiry
+	if exp, ok := claims["exp"].(float64); ok {
+		if int64(exp) < now {
+			s.logger.Error("Token expired", slog.Int64("exp", int64(exp)), slog.Int64("now", now))
+		}
+		return "", "", jwt.ErrTokenExpired
+	}
+
+	// check not before
+	if nbf, ok := claims["nbf"].(float64); ok {
+		if int64(nbf) > now {
+			s.logger.Error("Token not valid yet", slog.Int64("nbf", int64(nbf)), slog.Int64("now", now))
+		}
+		return "", "", jwt.ErrTokenNotValidYet
 	}
 
 	return userID, email, nil
