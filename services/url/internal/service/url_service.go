@@ -8,11 +8,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/trace"
 
+	"github.com/samims/hcaas/pkg/tracing"
 	appErr "github.com/samims/hcaas/services/url/internal/errors"
 	"github.com/samims/hcaas/services/url/internal/model"
 	"github.com/samims/hcaas/services/url/internal/storage"
@@ -52,27 +51,27 @@ type URLService interface {
 type urlService struct {
 	store  storage.Storage
 	logger *slog.Logger
-	tracer trace.Tracer
+	tracer *tracing.Tracer
 }
 
-func NewURLService(store storage.Storage, logger *slog.Logger) URLService {
+func NewURLService(store storage.Storage, logger *slog.Logger, tracer *tracing.Tracer) URLService {
 	l := logger.With("layer", "service", "component", "urlService")
 	return &urlService{
 		store:  store,
 		logger: l,
-		tracer: otel.Tracer("url-service"),
+		tracer: tracer,
 	}
 }
 
 // GetAllByUserID fetches urls for the user
 func (s *urlService) GetAllByUserID(ctx context.Context) ([]model.URL, error) {
-	ctx, span := s.tracer.Start(ctx, "GetAllByUserID")
+	ctx, span := s.tracer.StartServerSpan(ctx, "GetAllByUserID")
 	defer span.End()
 
 	s.logger.Info("GetAllByUserID called")
 	userID, err := getUserIDFromContext(ctx)
 	if err != nil {
-		span.RecordError(err)
+		s.tracer.RecordError(span, err)
 		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
@@ -84,7 +83,7 @@ func (s *urlService) GetAllByUserID(ctx context.Context) ([]model.URL, error) {
 		s.logger.Error("failed to fetch URLs",
 			slog.String("error", err.Error()),
 			slog.String("user_id", userID))
-		span.RecordError(err)
+		s.tracer.RecordError(span, err)
 		span.SetStatus(codes.Error, err.Error())
 		return nil, appErr.NewInternal("failed to fetch URLs: %v", err)
 	}
@@ -94,14 +93,14 @@ func (s *urlService) GetAllByUserID(ctx context.Context) ([]model.URL, error) {
 }
 
 func (s *urlService) GetAll(ctx context.Context) ([]model.URL, error) {
-	ctx, span := s.tracer.Start(ctx, "GetAll")
+	ctx, span := s.tracer.StartServerSpan(ctx, "GetAll")
 	defer span.End()
 	s.logger.Info("GetAll called")
 
-	urls, err := s.store.FindAll()
+	urls, err := s.store.FindAll(ctx)
 	if err != nil {
 		s.logger.Error("failed to fetch URLs", slog.String("error", err.Error()))
-		span.RecordError(err)
+		s.tracer.RecordError(span, err)
 		span.SetStatus(codes.Error, err.Error())
 		return nil, appErr.NewInternal("failed to fetch URLs: %v", err)
 	}
@@ -113,7 +112,7 @@ func (s *urlService) GetAll(ctx context.Context) ([]model.URL, error) {
 }
 
 func (s *urlService) GetByID(ctx context.Context, id string) (*model.URL, error) {
-	ctx, span := s.tracer.Start(ctx, "GetByID")
+	ctx, span := s.tracer.StartServerSpan(ctx, "GetByID")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("url.id", id))
@@ -121,7 +120,7 @@ func (s *urlService) GetByID(ctx context.Context, id string) (*model.URL, error)
 
 	userID, err := getUserIDFromContext(ctx)
 	if err != nil {
-		span.RecordError(err)
+		s.tracer.RecordError(span, err)
 		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
@@ -129,11 +128,11 @@ func (s *urlService) GetByID(ctx context.Context, id string) (*model.URL, error)
 	span.SetAttributes(attribute.String("user.id", userID))
 	span.SetAttributes(attribute.String("url.id", userID))
 
-	url, err := s.store.FindByID(id)
+	url, err := s.store.FindByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, appErr.ErrNotFound) {
 			s.logger.Warn("URL not found", slog.String("id", id), slog.String("user_id", userID))
-			span.RecordError(err)
+			s.tracer.RecordError(span, err)
 			span.SetStatus(codes.Error, err.Error())
 			return nil, appErr.NewNotFound(fmt.Sprintf("URL with ID %s not found", id))
 		}
@@ -142,7 +141,7 @@ func (s *urlService) GetByID(ctx context.Context, id string) (*model.URL, error)
 			slog.String("user_id", userID),
 			slog.String("error", err.Error()))
 
-		span.RecordError(err)
+		s.tracer.RecordError(span, err)
 		span.SetStatus(codes.Error, err.Error())
 		return nil, appErr.NewInternal("failed to fetch URL by ID: %v", err)
 	}
@@ -154,7 +153,7 @@ func (s *urlService) GetByID(ctx context.Context, id string) (*model.URL, error)
 			slog.String("requested_by", userID),
 			slog.String("owned_by", url.UserID))
 		ownershipErr := fmt.Errorf("URL access denied %s for user %s", id, userID)
-		span.RecordError(ownershipErr)
+		s.tracer.RecordError(span, ownershipErr)
 		return nil, appErr.NewNotFound(fmt.Sprintf("URL with ID %s not found", id))
 	}
 
@@ -163,7 +162,7 @@ func (s *urlService) GetByID(ctx context.Context, id string) (*model.URL, error)
 }
 
 func (s *urlService) Add(ctx context.Context, url model.URL) error {
-	ctx, span := s.tracer.Start(ctx, "Add")
+	ctx, span := s.tracer.StartServerSpan(ctx, "Add")
 	defer span.End()
 
 	span.SetAttributes(
@@ -182,7 +181,7 @@ func (s *urlService) Add(ctx context.Context, url model.URL) error {
 	span.SetAttributes(attribute.String("user.id", userID))
 
 	// Check if URL address already exists for this user
-	existingURL, err := s.store.FindByAddress(url.Address)
+	existingURL, err := s.store.FindByAddress(ctx, url.Address)
 	if err == nil && existingURL.UserID == userID {
 		s.logger.Warn("URL address already exists for user",
 			slog.String("address", url.Address),
@@ -205,7 +204,7 @@ func (s *urlService) Add(ctx context.Context, url model.URL) error {
 	if url.ID == "" {
 		url.ID = uuid.New().String()
 	}
-	if err := s.store.Save(&url); err != nil {
+	if err := s.store.Save(ctx, &url); err != nil {
 		if errors.Is(err, appErr.ErrConflict) {
 			s.logger.Warn("URL already exists", slog.String("URL", url.Address))
 			span.RecordError(err)
@@ -229,7 +228,7 @@ func (s *urlService) Add(ctx context.Context, url model.URL) error {
 func (s *urlService) UpdateStatus(ctx context.Context, id string, status string) error {
 	s.logger.Info("UpdateStatus called by bg task", slog.String("id", id), slog.String("status", status))
 
-	ctx, span := s.tracer.Start(ctx, "UpdateStatus")
+	ctx, span := s.tracer.StartServerSpan(ctx, "UpdateStatus")
 	defer span.End()
 
 	span.SetAttributes(
@@ -238,7 +237,7 @@ func (s *urlService) UpdateStatus(ctx context.Context, id string, status string)
 	)
 	s.logger.Info("UpdateStatus called", slog.String("id", id), slog.String("status", status))
 
-	if err := s.store.UpdateStatus(id, status, time.Now()); err != nil {
+	if err := s.store.UpdateStatus(ctx, id, status, time.Now()); err != nil {
 		if errors.Is(err, appErr.ErrNotFound) {
 			s.logger.Warn("URL not found for update", slog.String("id", id))
 			err := appErr.NewNotFound(fmt.Sprintf("cannot update: URL with ID %s not found", id))
